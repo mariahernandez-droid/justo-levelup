@@ -2,88 +2,70 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
 );
 
 export async function POST(req: Request) {
   try {
-    const { question } = await req.json();
+    const { message } = await req.json();
 
-    if (!question || question.trim() === "") {
+    if (!message) {
       return NextResponse.json({
-        type: "message",
-        content: "Escribe algo para poder ayudarte 😊"
+        type: "error",
+        content: "Mensaje vacío 😅",
       });
     }
 
-    const cleanQuestion = question
-      .toLowerCase()
-      .replace(/[^\w\s]/gi, "");
+    // Traer todos los procesos publicados
+    const { data: processes, error } = await supabase
+      .from("processes")
+      .select("id, title, content")
+      .eq("published", true);
 
-    const words = cleanQuestion
-      .split(" ")
-      .filter((w: string) => w.length > 3);
-
-    let matchedProcesses: any[] = [];
-
-    // 🔎 Buscar coincidencias por título
-    for (const word of words) {
-      const { data } = await supabase
-        .from("processes")
-        .select("id, title")
-        .ilike("title", `%${word}%`)
-        .eq("published", true);
-
-      if (data) {
-        matchedProcesses = [...matchedProcesses, ...data];
-      }
+    if (error) {
+      return NextResponse.json({
+        type: "error",
+        content: "Error consultando procesos",
+      });
     }
 
-    // Quitar duplicados
-    matchedProcesses = matchedProcesses.filter(
-      (v, i, a) => a.findIndex(t => t.id === v.id) === i
+    if (!processes || processes.length === 0) {
+      return NextResponse.json({
+        type: "message",
+        content: "No hay procesos disponibles.",
+      });
+    }
+
+    // 🔎 Buscar coincidencias por palabras clave
+    const lowerMessage = message.toLowerCase();
+
+    const matches = processes.filter((process) =>
+      process.title?.toLowerCase().includes(lowerMessage) ||
+      process.content?.toLowerCase().includes(lowerMessage)
     );
 
-    if (matchedProcesses.length === 0) {
+    if (matches.length === 0) {
       return NextResponse.json({
         type: "message",
-        content: "No encontré procesos relacionados 😔 Intenta con otras palabras."
+        content: "Lo siento 🥹 no encontré un proceso relacionado.",
       });
     }
 
-    // 🎯 Si solo hay uno → devolver pasos completos con multimedia
-    if (matchedProcesses.length === 1) {
-      const process = matchedProcesses[0];
+    // Tomar el primero más relevante
+    const bestMatch = matches[0];
 
-      const { data: steps } = await supabase
-        .from("process_steps")
-        .select("step_order, content, media_url")
-        .eq("process_id", process.id)
-        .order("step_order", { ascending: true });
-
-      return NextResponse.json({
-        type: "process",
-        title: process.title,
-        steps: steps || []
-      });
-    }
-
-    // 🧩 Si hay varios → mostrar opciones
     return NextResponse.json({
-      type: "options",
-      options: matchedProcesses.map(p => ({
-        id: p.id,
-        title: p.title
-      }))
+      type: "process",
+      content: bestMatch,
     });
 
-  } catch (error) {
-    console.error("ERROR:", error);
+  } catch (err) {
+    console.error(err);
 
     return NextResponse.json({
-      type: "message",
-      content: "Ocurrió un error 😔"
+      type: "error",
+      content: "Error interno del servidor 😢",
     });
   }
 }
