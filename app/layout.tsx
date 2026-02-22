@@ -1,39 +1,20 @@
-"use client";
+import "./globals.css";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+export const metadata = {
+  title: "LevelUp – Justo SAC",
+  description: "Plataforma interna de capacitación",
+};
 
-export default function AppLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-
-      if (!data.session) {
-        router.replace("/login");
-        return;
-      }
-
-      setLoading(false);
-    };
-
-    checkSession();
-  }, [router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Cargando...
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+  return (
+    <html lang="es">
+      <body className="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 min-h-screen">
+        {children}
+      </body>
+    </html>
+  );
 }
