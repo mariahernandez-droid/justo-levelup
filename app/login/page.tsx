@@ -14,7 +14,7 @@ export default function Login() {
   const handleLogin = async () => {
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -25,7 +25,13 @@ export default function Login() {
       return;
     }
 
-    router.push("/dashboard");
+    if (!data?.session) {
+      alert("No se pudo crear sesión.");
+      setLoading(false);
+      return;
+    }
+
+    router.replace("/dashboard");
   };
 
   const handleRegister = async () => {
@@ -47,26 +53,27 @@ export default function Login() {
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: "http://localhost:3000/dashboard",
+        redirectTo:
+          "https://justo-levelup-avr6.vercel.app/dashboard",
       },
     });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+    }
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-indigo-300 via-purple-300 to-pink-300">
-
-      {/* Blobs decorativos */}
-      <div className="absolute w-[500px] h-[500px] bg-purple-500 rounded-full blur-3xl opacity-30 -top-40 -left-40" />
-      <div className="absolute w-[500px] h-[500px] bg-pink-500 rounded-full blur-3xl opacity-30 -bottom-40 -right-40" />
-
-      <div className="relative backdrop-blur-2xl bg-white/30 p-12 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] w-[440px] border border-white/40">
-
-        {/* Título */}
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-300 via-purple-300 to-pink-300">
+      <div className="backdrop-blur-2xl bg-white/30 p-12 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] w-[440px] border border-white/40">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-gray-800 tracking-tight">
+          <h1 className="text-4xl font-extrabold text-gray-800">
             🎮 LevelUp
           </h1>
           <p className="text-gray-600 mt-2">
@@ -75,60 +82,51 @@ export default function Login() {
         </div>
 
         <div className="space-y-5">
-
-          {/* EMAIL */}
           <input
             type="email"
             placeholder="Correo corporativo"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-4 rounded-xl bg-white/60 border border-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition shadow-inner"
+            className="w-full p-4 rounded-xl bg-white/60 border border-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
 
-          {/* PASSWORD */}
           <input
             type="password"
             placeholder="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-4 rounded-xl bg-white/60 border border-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition shadow-inner"
+            className="w-full p-4 rounded-xl bg-white/60 border border-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
 
-          {/* LOGIN */}
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-3 rounded-xl shadow-lg transition transform hover:scale-[1.02] font-semibold"
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl shadow-lg font-semibold"
           >
             {loading ? "Cargando..." : "Iniciar sesión"}
           </button>
 
-          {/* REGISTER */}
           <button
             onClick={handleRegister}
             disabled={loading}
-            className="w-full bg-gray-700 hover:bg-gray-800 text-white py-3 rounded-xl shadow transition font-semibold"
+            className="w-full bg-gray-700 text-white py-3 rounded-xl font-semibold"
           >
             Crear cuenta
           </button>
 
-          {/* Divider */}
           <div className="flex items-center gap-4 text-gray-500 text-sm">
             <div className="flex-1 h-[1px] bg-white/50"></div>
             o
             <div className="flex-1 h-[1px] bg-white/50"></div>
           </div>
 
-          {/* GOOGLE */}
           <button
             onClick={handleGoogleLogin}
-            className="w-full bg-white/80 backdrop-blur-md border border-white/50 hover:bg-white text-gray-700 py-3 rounded-xl shadow transition font-medium"
+            className="w-full bg-white border border-white/50 text-gray-700 py-3 rounded-xl font-medium"
           >
             🔵 Iniciar sesión con Google
           </button>
-
         </div>
-
       </div>
     </main>
   );

@@ -19,42 +19,50 @@ export default function AppLayout({
   const [avatar, setAvatar] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
     const init = async () => {
-      // 🔥 Usar getSession (más estable que getUser)
-      const { data } = await supabase.auth.getSession();
+      // 🔥 USAR getUser (más estable en producción)
+      const { data, error } = await supabase.auth.getUser();
 
-      if (!mounted) return;
-
-      if (!data.session) {
+      if (error || !data?.user) {
         router.replace("/login");
         return;
       }
 
-      const user = data.session.user;
+      const user = data.user;
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role, nickname, avatar_url")
         .eq("id", user.id)
         .single();
 
-      if (!mounted) return;
-
-      if (profile) {
-        setRole(profile.role);
-        setNickname(profile.nickname);
-        setAvatar(profile.avatar_url);
+      if (profileError) {
+        console.log("PROFILE ERROR:", profileError);
       }
 
-      setLoading(false);
+      if (isMounted) {
+        setRole(profile?.role || null);
+        setNickname(profile?.nickname || null);
+        setAvatar(profile?.avatar_url || null);
+        setLoading(false);
+      }
     };
 
     init();
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        router.replace("/login");
+      }
+    });
+
     return () => {
-      mounted = false;
+      isMounted = false;
+      subscription.unsubscribe();
     };
   }, [router]);
 
@@ -81,14 +89,9 @@ export default function AppLayout({
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100">
-
-      {/* SIDEBAR */}
       <aside className="w-64 bg-white/70 backdrop-blur-xl shadow-2xl p-6 flex flex-col justify-between rounded-r-3xl">
-
         <div>
-          <h1 className="text-2xl font-extrabold mb-10">
-            🎮 LevelUp
-          </h1>
+          <h1 className="text-2xl font-extrabold mb-10">🎮 LevelUp</h1>
 
           <nav className="space-y-3">
             {menu.map((item) => (
@@ -107,9 +110,7 @@ export default function AppLayout({
           </nav>
         </div>
 
-        {/* PERFIL */}
         <div className="mt-10 border-t pt-6">
-
           <div className="flex items-center gap-3 mb-4">
             <img
               src={
@@ -117,14 +118,11 @@ export default function AppLayout({
                 "https://api.dicebear.com/7.x/adventurer/svg?seed=User"
               }
               className="w-12 h-12 rounded-full"
+              alt="avatar"
             />
             <div>
-              <p className="font-bold">
-                {nickname || "Usuario"}
-              </p>
-              <p className="text-xs text-gray-500">
-                {role}
-              </p>
+              <p className="font-bold">{nickname || "Usuario"}</p>
+              <p className="text-xs text-gray-500">{role}</p>
             </div>
           </div>
 
@@ -134,15 +132,10 @@ export default function AppLayout({
           >
             Salir
           </button>
-
         </div>
       </aside>
 
-      {/* CONTENIDO */}
-      <main className="flex-1 p-10 overflow-y-auto">
-        {children}
-      </main>
-
+      <main className="flex-1 p-10 overflow-y-auto">{children}</main>
     </div>
   );
 }

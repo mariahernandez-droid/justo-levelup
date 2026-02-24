@@ -1,13 +1,25 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-);
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    const { createClient } = await import("@supabase/supabase-js");
+
+    // ✅ DEFINIR BIEN LAS VARIABLES
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { type: "error", content: "Supabase no configurado" },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { message } = await req.json();
 
     if (!message) {
@@ -17,55 +29,45 @@ export async function POST(req: Request) {
       });
     }
 
-    // Traer todos los procesos publicados
     const { data: processes, error } = await supabase
       .from("processes")
       .select("id, title, content")
       .eq("published", true);
 
-    if (error) {
-      return NextResponse.json({
-        type: "error",
-        content: "Error consultando procesos",
-      });
-    }
+    if (error) throw error;
 
-    if (!processes || processes.length === 0) {
+    if (!processes?.length) {
       return NextResponse.json({
         type: "message",
         content: "No hay procesos disponibles.",
       });
     }
 
-    // 🔎 Buscar coincidencias por palabras clave
     const lowerMessage = message.toLowerCase();
 
-    const matches = processes.filter((process) =>
-      process.title?.toLowerCase().includes(lowerMessage) ||
-      process.content?.toLowerCase().includes(lowerMessage)
+    const match = processes.find(
+      (p) =>
+        p.title?.toLowerCase().includes(lowerMessage) ||
+        p.content?.toLowerCase().includes(lowerMessage)
     );
 
-    if (matches.length === 0) {
+    if (!match) {
       return NextResponse.json({
         type: "message",
         content: "Lo siento 🥹 no encontré un proceso relacionado.",
       });
     }
 
-    // Tomar el primero más relevante
-    const bestMatch = matches[0];
-
     return NextResponse.json({
       type: "process",
-      content: bestMatch,
+      content: match,
     });
 
   } catch (err) {
     console.error(err);
-
-    return NextResponse.json({
-      type: "error",
-      content: "Error interno del servidor 😢",
-    });
+    return NextResponse.json(
+      { type: "error", content: "Error interno 😢" },
+      { status: 500 }
+    );
   }
 }
