@@ -1,17 +1,27 @@
 "use client";
+export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState, useEffect } from "react";
+import { getSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export default function Login() {
   const router = useRouter();
 
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // 🔥 Crear cliente solo en cliente
+  useEffect(() => {
+    const client = getSupabase();
+    setSupabase(client);
+  }, []);
+
   const handleLogin = async () => {
+    if (!supabase) return;
     setLoading(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -35,6 +45,7 @@ export default function Login() {
   };
 
   const handleRegister = async () => {
+    if (!supabase) return;
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({
@@ -53,13 +64,13 @@ export default function Login() {
   };
 
   const handleGoogleLogin = async () => {
+    if (!supabase) return;
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo:
-          "https://justo-levelup-avr6.vercel.app/dashboard",
+        redirectTo: `${window.location.origin}/dashboard`,
       },
     });
 
@@ -68,6 +79,10 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  if (!supabase) {
+    return <div className="p-10">Cargando...</div>;
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-300 via-purple-300 to-pink-300">

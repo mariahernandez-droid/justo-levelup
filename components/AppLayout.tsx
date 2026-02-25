@@ -1,30 +1,53 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
+
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [email, setEmail] = useState<string | null>(null);
 
+  // 🔥 Crear cliente solo en cliente
   useEffect(() => {
+    const client = getSupabase();
+    setSupabase(client);
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
+
       if (!data.user) {
         router.push("/login");
         return;
       }
+
       setEmail(data.user.email || null);
     };
 
     getUser();
-  }, []);
+  }, [supabase, router]);
 
   const logout = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  if (!supabase) {
+    return <div className="p-10">Cargando...</div>;
+  }
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100">

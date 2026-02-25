@@ -1,12 +1,16 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 
 export default function ProcessDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
+
+  const [supabase, setSupabase] =
+    useState<ReturnType<typeof getSupabase> | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [process, setProcess] = useState<any>(null);
@@ -17,20 +21,22 @@ export default function ProcessDetail() {
   const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!id) return;
+    if (!id) return;
 
+    const sb = getSupabase();
+    setSupabase(sb);
+
+    const loadData = async () => {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await sb.auth.getUser();
 
       if (!user) {
         router.push("/login");
         return;
       }
 
-      // 🔹 Traer proceso
-      const { data: processData } = await supabase
+      const { data: processData } = await sb
         .from("processes")
         .select("*")
         .eq("id", id)
@@ -38,8 +44,7 @@ export default function ProcessDetail() {
 
       setProcess(processData);
 
-      // 🔹 Traer pasos
-      const { data: stepsData } = await supabase
+      const { data: stepsData } = await sb
         .from("process_steps")
         .select("*")
         .eq("process_id", id)
@@ -47,8 +52,7 @@ export default function ProcessDetail() {
 
       setSteps(stepsData || []);
 
-      // 🔹 Traer preguntas
-      const { data: questionsData } = await supabase
+      const { data: questionsData } = await sb
         .from("questions")
         .select("*")
         .eq("process_id", id);
@@ -62,13 +66,15 @@ export default function ProcessDetail() {
   }, [id, router]);
 
   const handleAnswer = (questionId: string, option: string) => {
-    setAnswers({
-      ...answers,
+    setAnswers((prev: any) => ({
+      ...prev,
       [questionId]: option,
-    });
+    }));
   };
 
   const submitExam = async () => {
+    if (!supabase || !questions.length) return;
+
     let correct = 0;
 
     questions.forEach((q) => {
@@ -89,20 +95,20 @@ export default function ProcessDetail() {
 
     if (!user) return;
 
-    // 🔹 Guardar resultado
     await supabase.from("results").insert({
       user_email: user.email,
       process_id: id,
       score: finalScore,
     });
 
-    // 🔥 Si aprueba, completar proceso
     if (finalScore >= 60) {
       await completeProcess(user.id);
     }
   };
 
   const completeProcess = async (userId: string) => {
+    if (!supabase) return;
+
     const { data: existing } = await supabase
       .from("process_completions")
       .select("*")
@@ -161,17 +167,16 @@ export default function ProcessDetail() {
     );
   };
 
-  if (loading) return <p className="p-10">Cargando...</p>;
+  if (loading || !supabase)
+    return <p className="p-10">Cargando...</p>;
 
   return (
     <main className="min-h-screen p-10 bg-gray-50">
       <div className="max-w-4xl mx-auto space-y-10">
-
         <h1 className="text-4xl font-bold">
           {process?.title}
         </h1>
 
-        {/* PASOS */}
         {steps.map((step, index) => (
           <div
             key={step.id}
@@ -187,7 +192,6 @@ export default function ProcessDetail() {
           </div>
         ))}
 
-        {/* EXAMEN */}
         {questions.length > 0 && (
           <div className="bg-white p-6 rounded-2xl shadow-md space-y-6">
             <h2 className="text-2xl font-bold">
@@ -239,7 +243,6 @@ export default function ProcessDetail() {
             )}
           </div>
         )}
-
       </div>
     </main>
   );

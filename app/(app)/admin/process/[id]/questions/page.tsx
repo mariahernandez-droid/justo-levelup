@@ -1,12 +1,14 @@
+export const dynamic = "force-dynamic";
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase"
 import { useParams, useRouter } from "next/navigation";
 
 export default function ProcessDetail() {
   const { id } = useParams();
   const router = useRouter();
+  const supabase = getSupabase();
 
   const [loading, setLoading] = useState(true);
   const [process, setProcess] = useState<any>(null);

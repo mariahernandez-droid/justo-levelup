@@ -1,9 +1,13 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export default function ProfilePage() {
+  const [supabase, setSupabase] =
+    useState<ReturnType<typeof getSupabase> | null>(null);
+
   const [userId, setUserId] = useState<string | null>(null);
   const [nickname, setNickname] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -11,13 +15,16 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const sb = getSupabase();
+    setSupabase(sb);
+
     const loadProfile = async () => {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await sb.auth.getUser();
       if (!userData.user) return;
 
       setUserId(userData.user.id);
 
-      const { data: profile } = await supabase
+      const { data: profile } = await sb
         .from("profiles")
         .select("nickname, avatar_url")
         .eq("id", userData.user.id)
@@ -35,10 +42,12 @@ export default function ProfilePage() {
   const handleUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    if (!supabase || !userId) return;
+
     try {
       setUploading(true);
 
-      if (!event.target.files || !userId) return;
+      if (!event.target.files) return;
 
       const file = event.target.files[0];
       const fileExt = file.name.split(".").pop();
@@ -53,7 +62,9 @@ export default function ProfilePage() {
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
 
       await supabase
         .from("profiles")
@@ -69,7 +80,7 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
-    if (!userId) return;
+    if (!supabase || !userId) return;
 
     try {
       setSaving(true);
@@ -87,21 +98,22 @@ export default function ProfilePage() {
     }
   };
 
+  if (!supabase)
+    return <p className="p-10">Cargando...</p>;
+
   return (
     <div className="min-h-screen p-10 bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100">
       <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl shadow-xl space-y-8">
-
         <h1 className="text-2xl font-bold">👤 Mi Perfil</h1>
 
-        {/* FOTO */}
         <div className="flex flex-col items-center space-y-4">
-
           <img
             src={
               avatar ||
               "https://api.dicebear.com/7.x/adventurer/svg?seed=User"
             }
             className="w-32 h-32 rounded-full object-cover border-4 border-purple-300 shadow-lg"
+            alt="avatar"
           />
 
           <label className="cursor-pointer bg-purple-600 text-white px-4 py-2 rounded-full hover:scale-105 transition">
@@ -115,7 +127,6 @@ export default function ProfilePage() {
           </label>
         </div>
 
-        {/* APODO */}
         <div className="space-y-3">
           <label className="text-sm text-gray-600">
             Apodo
@@ -135,7 +146,6 @@ export default function ProfilePage() {
             {saving ? "Guardando..." : "Guardar cambios 💜"}
           </button>
         </div>
-
       </div>
     </div>
   );

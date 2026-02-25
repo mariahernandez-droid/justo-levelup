@@ -1,14 +1,31 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+
+interface Process {
+  id: string;
+  title: string;
+  category_id: string;
+  published: boolean;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  icon?: string;
+}
 
 export default function ProcessesPage() {
   const router = useRouter();
 
-  const [processes, setProcesses] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [supabase, setSupabase] =
+    useState<ReturnType<typeof getSupabase> | null>(null);
+
+  const [processes, setProcesses] = useState<Process[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
 
   const [search, setSearch] = useState("");
@@ -18,60 +35,64 @@ export default function ProcessesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const sb = getSupabase();
+    setSupabase(sb);
+
+    const loadData = async () => {
+      const { data: userData } = await sb.auth.getUser();
+      if (!userData.user) {
+        router.push("/login");
+        return;
+      }
+
+      const user = userData.user;
+
+      const { data: processesData } = await sb
+        .from("processes")
+        .select("*")
+        .eq("published", true);
+
+      const { data: categoriesData } = await sb
+        .from("categories")
+        .select("*")
+        .order("name");
+
+      const { data: completions } = await sb
+        .from("process_completions")
+        .select("process_id")
+        .eq("user_id", user.id);
+
+      setProcesses((processesData as Process[]) || []);
+      setCategories((categoriesData as Category[]) || []);
+      setCompletedIds(
+        completions?.map(
+          (c: { process_id: string }) => c.process_id
+        ) || []
+      );
+
+      setLoading(false);
+    };
+
     loadData();
-  }, []);
+  }, [router]);
 
-  const loadData = async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return;
-
-    const user = userData.user;
-
-    const { data: processesData } = await supabase
-      .from("processes")
-      .select("*")
-      .eq("published", true);
-
-    const { data: categoriesData } = await supabase
-      .from("categories")
-      .select("*")
-      .order("name");
-
-    const { data: completions } = await supabase
-      .from("process_completions")
-      .select("process_id")
-      .eq("user_id", user.id);
-
-    setProcesses(processesData || []);
-    setCategories(categoriesData || []);
-    setCompletedIds(
-      completions?.map((c) => c.process_id) || []
-    );
-
-    setLoading(false);
-  };
-
-  if (loading)
+  if (loading || !supabase)
     return <p className="p-10">Cargando...</p>;
 
-  // 🔎 Aplicar filtros
   let filteredProcesses = [...processes];
 
-  // Buscar
   if (search) {
     filteredProcesses = filteredProcesses.filter((p) =>
       p.title.toLowerCase().includes(search.toLowerCase())
     );
   }
 
-  // Filtrar por categoría
   if (selectedCategory !== "all") {
     filteredProcesses = filteredProcesses.filter(
       (p) => p.category_id === selectedCategory
     );
   }
 
-  // Filtrar por estado
   if (statusFilter === "pending") {
     filteredProcesses = filteredProcesses.filter(
       (p) => !completedIds.includes(p.id)
@@ -86,17 +107,12 @@ export default function ProcessesPage() {
 
   return (
     <main className="min-h-screen p-10 bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200">
-
       <div className="max-w-6xl mx-auto space-y-12">
-
         <h1 className="text-4xl font-bold">
           📚 Biblioteca de Procesos
         </h1>
 
-        {/* 🔥 FILTROS */}
         <div className="grid md:grid-cols-3 gap-4">
-
-          {/* Buscador */}
           <input
             type="text"
             placeholder="Buscar proceso..."
@@ -105,7 +121,6 @@ export default function ProcessesPage() {
             className="p-4 rounded-2xl shadow-md focus:outline-none focus:ring-2 focus:ring-purple-400"
           />
 
-          {/* Categoría */}
           <select
             value={selectedCategory}
             onChange={(e) =>
@@ -123,7 +138,6 @@ export default function ProcessesPage() {
             ))}
           </select>
 
-          {/* Estado */}
           <select
             value={statusFilter}
             onChange={(e) =>
@@ -137,10 +151,8 @@ export default function ProcessesPage() {
               ✅ Completados
             </option>
           </select>
-
         </div>
 
-        {/* 🔥 GRID PROCESOS */}
         {filteredProcesses.length === 0 && (
           <p className="text-gray-600">
             No se encontraron procesos.
@@ -148,7 +160,6 @@ export default function ProcessesPage() {
         )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-
           {filteredProcesses.map((process) => {
             const isCompleted =
               completedIds.includes(process.id);
@@ -161,9 +172,7 @@ export default function ProcessesPage() {
                 }
                 className="group cursor-pointer bg-white/70 backdrop-blur-xl rounded-3xl p-6 shadow-md hover:shadow-2xl transition-all hover:-translate-y-2"
               >
-
                 <div className="flex justify-between items-start">
-
                   <div>
                     <h3 className="text-lg font-bold group-hover:text-purple-700 transition">
                       {process.title}
@@ -188,7 +197,6 @@ export default function ProcessesPage() {
                       🔥
                     </span>
                   )}
-
                 </div>
 
                 <div className="mt-6 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -200,15 +208,11 @@ export default function ProcessesPage() {
                     }`}
                   />
                 </div>
-
               </div>
             );
           })}
-
         </div>
-
       </div>
-
     </main>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export default function NewsPage() {
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
@@ -12,50 +15,38 @@ export default function NewsPage() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
 
+  // 🔥 Crear cliente SOLO en cliente
   useEffect(() => {
-    loadData();
+    const client = getSupabase();
+    setSupabase(client);
   }, []);
 
-  const loadData = async () => {
+  // 🔥 Cargar novedades
+  useEffect(() => {
+    if (!supabase) return;
 
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return;
+    const loadData = async () => {
+      const { data } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    const user = userData.user;
+      setAnnouncements(data || []);
+      setLoading(false);
+    };
 
-    // 🔥 Verificar rol
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile?.role === "admin") {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-    }
-
-    // 🔥 Traer novedades
-    const { data } = await supabase
-      .from("announcements")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    setAnnouncements(data || []);
-    setLoading(false);
-  };
+    loadData();
+  }, [supabase]);
 
   const handlePublish = async () => {
-
-    if (!title || !message) return;
+    if (!supabase) return;
+    if (!title.trim() || !message.trim()) return;
 
     setPublishing(true);
 
-    let mediaUrl = null;
-    let mediaType = null;
+    let mediaUrl: string | null = null;
+    let mediaType: string | null = null;
 
     if (file) {
       const fileExt = file.name.split(".").pop();
@@ -88,50 +79,56 @@ export default function NewsPage() {
     setMessage("");
     setFile(null);
 
-    await loadData();
+    const { data } = await supabase
+      .from("announcements")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    setAnnouncements(data || []);
     setPublishing(false);
   };
 
   const handleDelete = async (announcement: any) => {
+    if (!supabase) return;
 
     const confirmDelete = confirm(
       "¿Seguro que deseas eliminar esta novedad?"
     );
-
     if (!confirmDelete) return;
 
-    // 🔥 Si tiene archivo, eliminarlo
     if (announcement.media_url) {
       const fileName = announcement.media_url
         .split("/")
         .pop();
 
-      await supabase.storage
-        .from("announcements-media")
-        .remove([fileName]);
+      if (fileName) {
+        await supabase.storage
+          .from("announcements-media")
+          .remove([fileName]);
+      }
     }
 
-    // 🔥 Eliminar registros de lectura
     await supabase
       .from("announcement_reads")
       .delete()
       .eq("announcement_id", announcement.id);
 
-    // 🔥 Eliminar novedad
     await supabase
       .from("announcements")
       .delete()
       .eq("id", announcement.id);
 
-    await loadData();
+    setAnnouncements((prev) =>
+      prev.filter((a) => a.id !== announcement.id)
+    );
   };
 
-  if (loading)
+  if (!supabase || loading) {
     return <p className="p-10">Cargando...</p>;
+  }
 
   return (
     <main className="min-h-screen p-10 bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200">
-
       <div className="max-w-4xl mx-auto space-y-12">
 
         <h1 className="text-4xl font-bold">
@@ -178,7 +175,7 @@ export default function NewsPage() {
 
         </div>
 
-        {/* 🔥 LISTA */}
+        {/* 🔥 LISTA DE NOVEDADES */}
         <div className="space-y-6">
 
           {announcements.map((ann, index) => (
@@ -225,17 +222,12 @@ export default function NewsPage() {
                   ).toLocaleString()}
                 </p>
 
-                {/* 🔥 SOLO ADMIN VE ELIMINAR */}
-                {isAdmin && (
-                  <button
-                    onClick={() =>
-                      handleDelete(ann)
-                    }
-                    className="text-red-600 hover:text-red-800 font-semibold"
-                  >
-                    🗑 Eliminar
-                  </button>
-                )}
+                <button
+                  onClick={() => handleDelete(ann)}
+                  className="text-red-600 hover:text-red-800 font-semibold"
+                >
+                  🗑 Eliminar
+                </button>
 
               </div>
 
@@ -245,7 +237,6 @@ export default function NewsPage() {
         </div>
 
       </div>
-
     </main>
   );
 }

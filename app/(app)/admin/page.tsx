@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export default function Admin() {
+  const supabase = getSupabase();
 
   const [categories, setCategories] = useState<any[]>([]);
   const [processes, setProcesses] = useState<any[]>([]);
@@ -17,7 +18,8 @@ export default function Admin() {
     { content: string; file: File | null }[]
   >([]);
 
-  const [selectedProcessForQuestion, setSelectedProcessForQuestion] = useState("");
+  const [selectedProcessForQuestion, setSelectedProcessForQuestion] =
+    useState("");
   const [question, setQuestion] = useState("");
   const [optionA, setOptionA] = useState("");
   const [optionB, setOptionB] = useState("");
@@ -25,16 +27,22 @@ export default function Admin() {
   const [correctOption, setCorrectOption] = useState("");
 
   useEffect(() => {
+    if (!supabase) return;
+
     loadCategories();
     loadProcesses();
-  }, []);
+  }, [supabase]);
 
   const loadCategories = async () => {
+    if (!supabase) return;
+
     const { data } = await supabase.from("categories").select("*");
     if (data) setCategories(data);
   };
 
   const loadProcesses = async () => {
+    if (!supabase) return;
+
     const { data } = await supabase
       .from("processes")
       .select("*")
@@ -43,8 +51,9 @@ export default function Admin() {
     if (data) setProcesses(data);
   };
 
-  // 🔥 Crear categoría
   const createCategory = async () => {
+    if (!supabase) return;
+
     await supabase.from("categories").insert({
       name: categoryName,
       badge_icon: categoryIcon,
@@ -55,19 +64,23 @@ export default function Admin() {
     loadCategories();
   };
 
-  // 🔥 Pasos
   const addStep = () => {
     setSteps([...steps, { content: "", file: null }]);
   };
 
-  const updateStep = (index: number, field: string, value: any) => {
+  const updateStep = (
+    index: number,
+    field: "content" | "file",
+    value: any
+  ) => {
     const updated = [...steps];
-    updated[index][field as keyof typeof updated[number]] = value;
+    updated[index][field] = value;
     setSteps(updated);
   };
 
-  // 🔥 Crear proceso
   const createProcess = async () => {
+    if (!supabase) return;
+
     const { data: newProcess } = await supabase
       .from("processes")
       .insert({
@@ -76,6 +89,8 @@ export default function Admin() {
       })
       .select()
       .single();
+
+    if (!newProcess) return;
 
     for (let i = 0; i < steps.length; i++) {
       let mediaUrl = null;
@@ -108,8 +123,9 @@ export default function Admin() {
     loadProcesses();
   };
 
-  // 🔥 Publicar / Despublicar
   const togglePublish = async (id: string, current: boolean) => {
+    if (!supabase) return;
+
     await supabase
       .from("processes")
       .update({ published: !current })
@@ -118,14 +134,16 @@ export default function Admin() {
     loadProcesses();
   };
 
-  // 🔥 Eliminar
   const deleteProcess = async (id: string) => {
+    if (!supabase) return;
+
     await supabase.from("processes").delete().eq("id", id);
     loadProcesses();
   };
 
-  // 🔥 Crear pregunta
   const createQuestion = async () => {
+    if (!supabase) return;
+
     await supabase.from("questions").insert({
       process_id: selectedProcessForQuestion,
       question,
@@ -144,12 +162,15 @@ export default function Admin() {
 
   return (
     <main className="p-10 space-y-16">
-
-      <h1 className="text-3xl font-bold">⚙️ Panel Admin Completo</h1>
+      <h1 className="text-3xl font-bold">
+        ⚙️ Panel Admin Completo
+      </h1>
 
       {/* CATEGORÍAS */}
       <div className="bg-white p-6 rounded-2xl shadow space-y-4">
-        <h2 className="font-bold text-xl">📂 Crear Categoría</h2>
+        <h2 className="font-bold text-xl">
+          📂 Crear Categoría
+        </h2>
 
         <input
           placeholder="Nombre"
@@ -175,7 +196,9 @@ export default function Admin() {
 
       {/* CREAR PROCESO */}
       <div className="bg-white p-6 rounded-2xl shadow space-y-6">
-        <h2 className="font-bold text-xl">📚 Crear Proceso</h2>
+        <h2 className="font-bold text-xl">
+          📚 Crear Proceso
+        </h2>
 
         <input
           placeholder="Título"
@@ -186,11 +209,15 @@ export default function Admin() {
 
         <select
           value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
+          onChange={(e) =>
+            setSelectedCategory(e.target.value)
+          }
           className="w-full p-3 border rounded-xl"
         >
-          <option value="">Selecciona categoría</option>
-          {categories.map((cat) => (
+          <option value="">
+            Selecciona categoría
+          </option>
+          {categories.map((cat: any) => (
             <option key={cat.id} value={cat.id}>
               {cat.name}
             </option>
@@ -198,19 +225,30 @@ export default function Admin() {
         </select>
 
         {steps.map((step, index) => (
-          <div key={index} className="bg-gray-100 p-4 rounded-xl">
+          <div
+            key={index}
+            className="bg-gray-100 p-4 rounded-xl"
+          >
             <textarea
               placeholder={`Paso ${index + 1}`}
               value={step.content}
               onChange={(e) =>
-                updateStep(index, "content", e.target.value)
+                updateStep(
+                  index,
+                  "content",
+                  e.target.value
+                )
               }
               className="w-full p-3 border rounded-xl"
             />
             <input
               type="file"
               onChange={(e) =>
-                updateStep(index, "file", e.target.files?.[0] || null)
+                updateStep(
+                  index,
+                  "file",
+                  e.target.files?.[0] || null
+                )
               }
             />
           </div>
@@ -233,27 +271,45 @@ export default function Admin() {
 
       {/* LISTA PROCESOS */}
       <div className="space-y-4">
-        <h2 className="font-bold text-xl">📄 Procesos</h2>
+        <h2 className="font-bold text-xl">
+          📄 Procesos
+        </h2>
 
-        {processes.map((p) => (
-          <div key={p.id} className="bg-white p-4 rounded-xl shadow flex justify-between">
+        {processes.map((p: any) => (
+          <div
+            key={p.id}
+            className="bg-white p-4 rounded-xl shadow flex justify-between"
+          >
             <div>
-              <p className="font-bold">{p.title}</p>
+              <p className="font-bold">
+                {p.title}
+              </p>
               <p className="text-sm text-gray-500">
-                {p.published ? "Publicado" : "Borrador"}
+                {p.published
+                  ? "Publicado"
+                  : "Borrador"}
               </p>
             </div>
 
             <div className="flex gap-2">
               <button
-                onClick={() => togglePublish(p.id, p.published)}
+                onClick={() =>
+                  togglePublish(
+                    p.id,
+                    p.published
+                  )
+                }
                 className="bg-yellow-500 text-white px-3 py-1 rounded-lg"
               >
-                {p.published ? "Despublicar" : "Publicar"}
+                {p.published
+                  ? "Despublicar"
+                  : "Publicar"}
               </button>
 
               <button
-                onClick={() => deleteProcess(p.id)}
+                onClick={() =>
+                  deleteProcess(p.id)
+                }
                 className="bg-red-600 text-white px-3 py-1 rounded-lg"
               >
                 Eliminar
@@ -265,15 +321,23 @@ export default function Admin() {
 
       {/* PREGUNTAS */}
       <div className="bg-white p-6 rounded-2xl shadow space-y-4">
-        <h2 className="font-bold text-xl">🧠 Agregar Pregunta</h2>
+        <h2 className="font-bold text-xl">
+          🧠 Agregar Pregunta
+        </h2>
 
         <select
           value={selectedProcessForQuestion}
-          onChange={(e) => setSelectedProcessForQuestion(e.target.value)}
+          onChange={(e) =>
+            setSelectedProcessForQuestion(
+              e.target.value
+            )
+          }
           className="w-full p-3 border rounded-xl"
         >
-          <option value="">Selecciona proceso</option>
-          {processes.map((p) => (
+          <option value="">
+            Selecciona proceso
+          </option>
+          {processes.map((p: any) => (
             <option key={p.id} value={p.id}>
               {p.title}
             </option>
@@ -283,37 +347,49 @@ export default function Admin() {
         <input
           placeholder="Pregunta"
           value={question}
-          onChange={(e) => setQuestion(e.target.value)}
+          onChange={(e) =>
+            setQuestion(e.target.value)
+          }
           className="w-full p-3 border rounded-xl"
         />
 
         <input
           placeholder="Opción A"
           value={optionA}
-          onChange={(e) => setOptionA(e.target.value)}
+          onChange={(e) =>
+            setOptionA(e.target.value)
+          }
           className="w-full p-3 border rounded-xl"
         />
 
         <input
           placeholder="Opción B"
           value={optionB}
-          onChange={(e) => setOptionB(e.target.value)}
+          onChange={(e) =>
+            setOptionB(e.target.value)
+          }
           className="w-full p-3 border rounded-xl"
         />
 
         <input
           placeholder="Opción C"
           value={optionC}
-          onChange={(e) => setOptionC(e.target.value)}
+          onChange={(e) =>
+            setOptionC(e.target.value)
+          }
           className="w-full p-3 border rounded-xl"
         />
 
         <select
           value={correctOption}
-          onChange={(e) => setCorrectOption(e.target.value)}
+          onChange={(e) =>
+            setCorrectOption(e.target.value)
+          }
           className="w-full p-3 border rounded-xl"
         >
-          <option value="">Correcta</option>
+          <option value="">
+            Correcta
+          </option>
           <option value="A">A</option>
           <option value="B">B</option>
           <option value="C">C</option>
@@ -326,7 +402,6 @@ export default function Admin() {
           Crear Pregunta
         </button>
       </div>
-
     </main>
   );
 }

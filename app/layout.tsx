@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata = {
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
   title: "LevelUp – Justo SAC",
   description: "Plataforma interna de capacitación",
 };

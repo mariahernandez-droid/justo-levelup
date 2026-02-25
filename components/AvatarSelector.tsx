@@ -1,7 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase"
 
 const avatarStyles = [
   { name: "Anime Fantasía 🧚", value: "lorelei" },
@@ -17,6 +18,9 @@ const avatarStyles = [
 
 export default function AvatarSelector({ userId }: any) {
   const [selectedStyle, setSelectedStyle] = useState("lorelei");
+  const supabase = getSupabase();
+
+  if (!supabase) return;
 
   const saveAvatar = async () => {
     const seed = Math.random().toString(36).substring(2, 10);

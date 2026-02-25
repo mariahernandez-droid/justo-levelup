@@ -1,9 +1,11 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import Link from "next/link";
+import type { AuthChangeEvent, Session, SupabaseClient } from "@supabase/supabase-js";
 
 export default function AppLayout({
   children,
@@ -13,16 +15,23 @@ export default function AppLayout({
   const router = useRouter();
   const pathname = usePathname();
 
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
 
   useEffect(() => {
+    const client = getSupabase();
+    setSupabase(client);
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+
     let isMounted = true;
 
     const init = async () => {
-      // 🔥 USAR getUser (más estable en producción)
       const { data, error } = await supabase.auth.getUser();
 
       if (error || !data?.user) {
@@ -32,15 +41,11 @@ export default function AppLayout({
 
       const user = data.user;
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("role, nickname, avatar_url")
         .eq("id", user.id)
         .single();
-
-      if (profileError) {
-        console.log("PROFILE ERROR:", profileError);
-      }
 
       if (isMounted) {
         setRole(profile?.role || null);
@@ -54,19 +59,22 @@ export default function AppLayout({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
-        router.replace("/login");
+    } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        if (!session?.user) {
+          router.replace("/login");
+        }
       }
-    });
+    );
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, supabase]);
 
   const logout = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     router.replace("/login");
   };
@@ -135,7 +143,9 @@ export default function AppLayout({
         </div>
       </aside>
 
-      <main className="flex-1 p-10 overflow-y-auto">{children}</main>
+      <main className="flex-1 p-10 overflow-y-auto">
+        {children}
+      </main>
     </div>
   );
 }

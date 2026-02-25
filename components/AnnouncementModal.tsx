@@ -1,6 +1,9 @@
 "use client";
+export const dynamic = "force-dynamic";
 
-import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import { getSupabase } from "@/lib/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface Props {
   announcement: any;
@@ -13,22 +16,34 @@ export default function AnnouncementModal({
   userId,
   onClose,
 }: Props) {
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+
+  useEffect(() => {
+    const client = getSupabase();
+    setSupabase(client);
+  }, []);
 
   const handleClose = async () => {
+    if (!supabase) return;
 
-    await supabase.from("announcement_reads").insert({
-      user_id: userId,
-      announcement_id: announcement.id,
-    });
+    try {
+      await supabase.from("announcement_reads").insert({
+        user_id: userId,
+        announcement_id: announcement.id,
+      });
 
-    onClose(announcement.id);
+      onClose(announcement.id);
+    } catch (error) {
+      console.error("Error marcando como leído:", error);
+      onClose(announcement.id); // no bloqueamos la UI
+    }
   };
+
+  if (!supabase) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 relative animate-fadeIn">
-
         {/* Cerrar */}
         <button
           onClick={handleClose}
@@ -47,15 +62,16 @@ export default function AnnouncementModal({
           {announcement.message}
         </p>
 
-        {/* 🖼 IMAGEN */}
+        {/* Imagen */}
         {announcement.media_type === "image" && (
           <img
             src={announcement.media_url}
             className="rounded-2xl shadow-lg max-h-96 object-cover w-full"
+            alt="media"
           />
         )}
 
-        {/* 🎥 VIDEO */}
+        {/* Video */}
         {announcement.media_type === "video" && (
           <video
             controls
@@ -77,7 +93,6 @@ export default function AnnouncementModal({
         >
           Entendido 💜
         </button>
-
       </div>
     </div>
   );

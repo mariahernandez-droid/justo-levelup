@@ -1,47 +1,78 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 
+interface Question {
+  id: string;
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  correct_option: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+}
+
 export default function Exam() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [answers, setAnswers] = useState<any>({});
+  const [supabase, setSupabase] = useState<ReturnType<typeof getSupabase> | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    if (!id) return;
+
+    const sb = getSupabase();
+    setSupabase(sb);
+
     const init = async () => {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await sb.auth.getUser();
 
       if (!userData.user) {
         router.push("/login");
         return;
       }
 
-      setUser(userData.user);
+      setUser({
+        id: userData.user.id,
+        email: userData.user.email || "",
+      });
 
-      const { data } = await supabase
+      const { data } = await sb
         .from("questions")
         .select("*")
         .eq("process_id", id);
 
-      if (data) setQuestions(data);
+      if (data) {
+        setQuestions(data);
+      }
 
       setLoading(false);
     };
 
     init();
-  }, [id]);
+  }, [id, router]);
 
   const handleSelect = (questionId: string, option: string) => {
-    setAnswers({ ...answers, [questionId]: option });
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: option,
+    }));
   };
 
   const finishExam = async () => {
+    if (!supabase || !user) return;
+
     let correct = 0;
 
     questions.forEach((q) => {
@@ -50,9 +81,11 @@ export default function Exam() {
       }
     });
 
-    const score = Math.round((correct / questions.length) * 100);
+    const score =
+      questions.length > 0
+        ? Math.round((correct / questions.length) * 100)
+        : 0;
 
-    // 🔹 Guardar resultado
     await supabase.from("results").insert({
       user_email: user.email,
       process_id: id,
@@ -60,14 +93,12 @@ export default function Exam() {
     });
 
     if (score >= 60) {
-
-      // 🔹 Guardar completion (evitar duplicados)
       const { data: existingCompletion } = await supabase
         .from("process_completions")
         .select("*")
         .eq("user_id", user.id)
         .eq("process_id", id)
-        .single();
+        .maybeSingle();
 
       if (!existingCompletion) {
         await supabase.from("process_completions").insert({
@@ -76,7 +107,6 @@ export default function Exam() {
         });
       }
 
-      // 🔹 Actualizar racha
       const today = new Date().toISOString().split("T")[0];
 
       const { data: profile } = await supabase
@@ -100,13 +130,15 @@ export default function Exam() {
           else if (diffDays > 1) newStreak = 1;
         }
 
-        await supabase.from("profiles").update({
-          streak: newStreak,
-          last_activity: today,
-        }).eq("id", user.id);
+        await supabase
+          .from("profiles")
+          .update({
+            streak: newStreak,
+            last_activity: today,
+          })
+          .eq("id", user.id);
       }
 
-      // 🔹 Verificar categoría
       const { data: process } = await supabase
         .from("processes")
         .select("category_id")
@@ -114,34 +146,35 @@ export default function Exam() {
         .single();
 
       if (process?.category_id) {
-
         const { data: categoryProcesses } = await supabase
           .from("processes")
           .select("id")
           .eq("category_id", process.category_id);
 
-        const processIds = categoryProcesses?.map(p => p.id) || [];
+        const processIds =
+          categoryProcesses?.map((p: { id: string }) => p.id) || [];
 
         const { data: completions } = await supabase
           .from("process_completions")
           .select("process_id")
           .eq("user_id", user.id);
 
-        const completedIds = completions?.map(c => c.process_id) || [];
+        const completedIds =
+          completions?.map(
+            (c: { process_id: string }) => c.process_id
+          ) || [];
 
-        const completedCount = processIds.filter(id =>
-          completedIds.includes(id)
+        const completedCount = processIds.filter((pid) =>
+          completedIds.includes(pid)
         ).length;
 
         if (completedCount === processIds.length) {
-
-          // 🔹 Evitar duplicar insignia
           const { data: existingBadge } = await supabase
             .from("user_badges")
             .select("*")
             .eq("user_id", user.id)
             .eq("category_id", process.category_id)
-            .single();
+            .maybeSingle();
 
           if (!existingBadge) {
             await supabase.from("user_badges").insert({
@@ -157,15 +190,13 @@ export default function Exam() {
     router.push("/dashboard");
   };
 
-  if (loading) {
+  if (loading || !supabase) {
     return <p className="p-10">Cargando examen...</p>;
   }
 
   return (
     <main className="p-10 min-h-screen">
-
       <div className="max-w-3xl mx-auto space-y-8">
-
         <h1 className="text-3xl font-bold">
           🧠 Mini Examen
         </h1>
@@ -189,7 +220,11 @@ export default function Exam() {
                     : "bg-gray-50"
                 }`}
               >
-                {q[`option_${option.toLowerCase()}`]}
+                {
+                  q[
+                    `option_${option.toLowerCase()}` as keyof Question
+                  ] as string
+                }
               </button>
             ))}
           </div>
@@ -201,9 +236,7 @@ export default function Exam() {
         >
           Finalizar Examen
         </button>
-
       </div>
-
     </main>
   );
 }
