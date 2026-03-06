@@ -107,14 +107,18 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold">👤 Mi Perfil</h1>
 
         <div className="flex flex-col items-center space-y-4">
-          <img
-            src={
-              avatar ||
-              "https://api.dicebear.com/7.x/adventurer/svg?seed=User"
-            }
-            className="w-32 h-32 rounded-full object-cover border-4 border-purple-300 shadow-lg"
-            alt="avatar"
-          />
+          
+          {/* AVATAR CORREGIDO */}
+          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-purple-300 shadow-xl bg-gray-100">
+            <img
+              src={
+                avatar ||
+                "https://api.dicebear.com/7.x/adventurer/svg?seed=User"
+              }
+              alt="avatar"
+              className="w-full h-full object-cover"
+            />
+          </div>
 
           <label className="cursor-pointer bg-purple-600 text-white px-4 py-2 rounded-full hover:scale-105 transition">
             {uploading ? "Subiendo..." : "Cambiar foto"}

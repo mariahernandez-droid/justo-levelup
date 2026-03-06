@@ -3,16 +3,40 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 
+type ProcessStep = {
+  step_order: number;
+  content: string;
+  media_url: string | null;
+};
+
+type Process = {
+  id: string;
+  title: string;
+  process_steps: ProcessStep[];
+};
+
+type Message =
+  | { role: "user"; text: string }
+  | { role: "assistant"; text?: string; process?: Process };
+
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
   const sendQuestion = async () => {
     if (!question.trim()) return;
 
+    const userQuestion = question;
+    setQuestion("");
     setLoading(true);
+
+    // Mostrar mensaje del usuario
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: userQuestion },
+    ]);
 
     try {
       const res = await fetch("/api/assistant", {
@@ -20,51 +44,57 @@ export default function AssistantWidget() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ message: userQuestion }),
       });
+
+      // 🔥 Si el servidor responde error
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Error servidor:", errorText);
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text: "Error del servidor 😢",
+          },
+        ]);
+
+        setLoading(false);
+        return;
+      }
 
       const data = await res.json();
 
-      // Usuario
-      setMessages(prev => [
-        ...prev,
-        { role: "user", text: question }
-      ]);
+      console.log("Respuesta API:", data);
 
-      // Assistant
-      if (data.type === "message") {
-        setMessages(prev => [
-          ...prev,
-          { role: "assistant", text: data.content }
-        ]);
-      }
-
+      // 🔥 Siempre mostrar algo
       if (data.type === "process") {
-        setMessages(prev => [
+        setMessages((prev) => [
           ...prev,
-          { role: "assistant", process: data }
+          { role: "assistant", process: data.content },
         ]);
-      }
-
-      if (data.type === "options") {
-        setMessages(prev => [
+      } else {
+        setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             text:
-              "Encontré estos procesos:\n\n" +
-              data.options
-                .map((o: any, i: number) => `${i + 1}. ${o.title}`)
-                .join("\n")
-          }
+              data.content ||
+              "Lo siento 🥹 no encontré un proceso relacionado.",
+          },
         ]);
       }
 
-      setQuestion("");
     } catch (error) {
-      setMessages(prev => [
+      console.error("Error fetch:", error);
+
+      setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: "Ocurrió un error 😔" }
+        {
+          role: "assistant",
+          text: "Ocurrió un error en producción 😢",
+        },
       ]);
     }
 
@@ -88,11 +118,10 @@ export default function AssistantWidget() {
             Asistente LevelUp
           </h3>
 
-          <div className="flex-1 overflow-y-auto space-y-3 mb-3 max-h-80">
+          <div className="flex-1 overflow-y-auto space-y-3 mb-3 max-h-96">
 
             {messages.map((msg, i) => {
 
-              // Usuario
               if (msg.role === "user") {
                 return (
                   <div
@@ -104,7 +133,6 @@ export default function AssistantWidget() {
                 );
               }
 
-              // Proceso con multimedia
               if (msg.process) {
                 return (
                   <div
@@ -115,36 +143,40 @@ export default function AssistantWidget() {
                       📘 {msg.process.title}
                     </p>
 
-                    {msg.process.steps.map((step: any) => (
-                      <div key={step.step_order} className="space-y-2">
-                        <p>
-                          <strong>{step.step_order}.</strong> {step.content}
-                        </p>
+                    {msg.process.process_steps
+                      ?.sort((a, b) =>
+                        a.step_order - b.step_order
+                      )
+                      .map((step) => (
+                        <div key={step.step_order} className="space-y-2">
+                          <p>
+                            <strong>{step.step_order}.</strong>{" "}
+                            {step.content}
+                          </p>
 
-                        {step.media_url && (
-                          <>
-                            {step.media_url.endsWith(".mp4") ? (
-                              <video
-                                src={step.media_url}
-                                controls
-                                className="rounded-xl w-full"
-                              />
-                            ) : (
-                              <img
-                                src={step.media_url}
-                                alt="Paso visual"
-                                className="rounded-xl w-full"
-                              />
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
+                          {step.media_url && (
+                            <>
+                              {step.media_url.endsWith(".mp4") ? (
+                                <video
+                                  src={step.media_url}
+                                  controls
+                                  className="rounded-xl w-full"
+                                />
+                              ) : (
+                                <img
+                                  src={step.media_url}
+                                  alt="Paso visual"
+                                  className="rounded-xl w-full"
+                                />
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
                   </div>
                 );
               }
 
-              // Mensaje normal
               return (
                 <div
                   key={i}
@@ -163,7 +195,7 @@ export default function AssistantWidget() {
 
           </div>
 
-          {/* Input */}
+          {/* INPUT */}
           <div className="flex gap-2">
             <input
               value={question}

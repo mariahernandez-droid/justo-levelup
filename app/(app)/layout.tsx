@@ -5,7 +5,12 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import Link from "next/link";
-import type { AuthChangeEvent, Session, SupabaseClient } from "@supabase/supabase-js";
+import type {
+  AuthChangeEvent,
+  Session,
+  SupabaseClient,
+} from "@supabase/supabase-js";
+import AssistantWidget from "@/components/AssistantWidget";
 
 export default function AppLayout({
   children,
@@ -15,11 +20,14 @@ export default function AppLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [supabase, setSupabase] =
+    useState<SupabaseClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
-  const [nickname, setNickname] = useState<string | null>(null);
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const [nickname, setNickname] =
+    useState<string | null>(null);
+  const [avatar, setAvatar] =
+    useState<string | null>(null);
 
   useEffect(() => {
     const client = getSupabase();
@@ -32,7 +40,8 @@ export default function AppLayout({
     let isMounted = true;
 
     const init = async () => {
-      const { data, error } = await supabase.auth.getUser();
+      const { data, error } =
+        await supabase.auth.getUser();
 
       if (error || !data?.user) {
         router.replace("/login");
@@ -92,14 +101,22 @@ export default function AppLayout({
   ];
 
   if (role === "admin") {
-    menu.push({ name: "Admin", path: "/admin", icon: "⚙️" });
+    menu.push({
+      name: "Admin",
+      path: "/admin",
+      icon: "⚙️",
+    });
   }
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100">
+
+      {/* SIDEBAR */}
       <aside className="w-64 bg-white/70 backdrop-blur-xl shadow-2xl p-6 flex flex-col justify-between rounded-r-3xl">
         <div>
-          <h1 className="text-2xl font-extrabold mb-10">🎮 LevelUp</h1>
+          <h1 className="text-2xl font-extrabold mb-10">
+            🎮 LevelUp
+          </h1>
 
           <nav className="space-y-3">
             {menu.map((item) => (
@@ -129,8 +146,12 @@ export default function AppLayout({
               alt="avatar"
             />
             <div>
-              <p className="font-bold">{nickname || "Usuario"}</p>
-              <p className="text-xs text-gray-500">{role}</p>
+              <p className="font-bold">
+                {nickname || "Usuario"}
+              </p>
+              <p className="text-xs text-gray-500">
+                {role}
+              </p>
             </div>
           </div>
 
@@ -143,9 +164,13 @@ export default function AppLayout({
         </div>
       </aside>
 
+      {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 p-10 overflow-y-auto">
         {children}
       </main>
+
+      {/* 🔥 AQUÍ VA EL BOT */}
+      <AssistantWidget />
     </div>
   );
 }

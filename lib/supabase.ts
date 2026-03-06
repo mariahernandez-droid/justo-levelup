@@ -3,15 +3,15 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 let client: SupabaseClient | null = null;
 
 export function getSupabase(): SupabaseClient {
-  if (typeof window === "undefined") {
-    throw new Error("Supabase should not run on the server");
-  }
-
   if (!client) {
-    client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Faltan variables de entorno de Supabase");
+    }
+
+    client = createClient(supabaseUrl, supabaseKey);
   }
 
   return client;
