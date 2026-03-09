@@ -9,7 +9,6 @@ export default function EditProcess() {
   const router = useRouter();
 
   const [supabase, setSupabase] = useState<any>(null);
-  const [process, setProcess] = useState<any>(null);
   const [steps, setSteps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,15 +17,6 @@ export default function EditProcess() {
     setSupabase(sb);
 
     const load = async () => {
-
-      const { data: processData } = await sb
-        .from("processes")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      setProcess(processData);
-
       const { data: stepsData } = await sb
         .from("process_steps")
         .select("*")
@@ -34,14 +24,13 @@ export default function EditProcess() {
         .order("step_order");
 
       setSteps(stepsData || []);
-
       setLoading(false);
     };
 
     load();
   }, [id]);
 
-  // ✏️ editar contenido
+  // ✏️ editar texto del paso
   const updateStep = (index: number, value: string) => {
     const newSteps = [...steps];
     newSteps[index].content = value;
@@ -62,16 +51,42 @@ export default function EditProcess() {
     );
   };
 
+  // ➕ agregar paso nuevo
+  const addStep = () => {
+    const newStep = {
+      id: crypto.randomUUID(),
+      content: "",
+      step_order: steps.length + 1,
+      isNew: true,
+    };
+
+    setSteps([...steps, newStep]);
+  };
+
   // 💾 guardar cambios
   const save = async () => {
 
     for (const step of steps) {
-      await supabase
-        .from("process_steps")
-        .update({
+
+      // nuevo paso
+      if (step.isNew) {
+        await supabase.from("process_steps").insert({
+          process_id: id,
           content: step.content,
-        })
-        .eq("id", step.id);
+          step_order: step.step_order,
+        });
+      }
+
+      // paso existente
+      else {
+        await supabase
+          .from("process_steps")
+          .update({
+            content: step.content,
+            step_order: step.step_order,
+          })
+          .eq("id", step.id);
+      }
     }
 
     alert("Proceso actualizado 🎉");
@@ -117,6 +132,7 @@ export default function EditProcess() {
                 updateStep(index, e.target.value)
               }
               className="w-full p-3 border rounded-lg"
+              placeholder="Contenido del paso..."
             />
 
           </div>
@@ -124,6 +140,15 @@ export default function EditProcess() {
 
       </div>
 
+      {/* ➕ agregar paso */}
+      <button
+        onClick={addStep}
+        className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700"
+      >
+        ➕ Agregar paso
+      </button>
+
+      {/* guardar */}
       <button
         onClick={save}
         className="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700"
