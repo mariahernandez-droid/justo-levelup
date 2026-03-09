@@ -199,11 +199,11 @@ export default function NewsPage() {
               </p>
 
               {ann.media_type === "image" && (
-                <img
-                  src={ann.media_url}
-                  className="rounded-2xl shadow-lg max-h-96 object-cover w-full"
-                />
-              )}
+  <img
+    src={ann.media_url}
+    className="rounded-2xl shadow-lg w-full object-contain"
+  />
+)}
 
               {ann.media_type === "video" && (
                 <video

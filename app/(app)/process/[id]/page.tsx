@@ -20,6 +20,8 @@ export default function ProcessDetail() {
   const [score, setScore] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
 
+  const [role, setRole] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) return;
 
@@ -36,6 +38,16 @@ export default function ProcessDetail() {
         return;
       }
 
+      // 🔹 Obtener rol del usuario
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      setRole(profile?.role || null);
+
+      // 🔹 Cargar proceso
       const { data: processData } = await sb
         .from("processes")
         .select("*")
@@ -44,6 +56,7 @@ export default function ProcessDetail() {
 
       setProcess(processData);
 
+      // 🔹 Cargar pasos
       const { data: stepsData } = await sb
         .from("process_steps")
         .select("*")
@@ -52,6 +65,7 @@ export default function ProcessDetail() {
 
       setSteps(stepsData || []);
 
+      // 🔹 Cargar preguntas
       const { data: questionsData } = await sb
         .from("questions")
         .select("*")
@@ -173,9 +187,26 @@ export default function ProcessDetail() {
   return (
     <main className="min-h-screen p-10 bg-gray-50">
       <div className="max-w-4xl mx-auto space-y-10">
-        <h1 className="text-4xl font-bold">
-          {process?.title}
-        </h1>
+
+        <div className="flex justify-between items-center">
+
+          <h1 className="text-4xl font-bold">
+            {process?.title}
+          </h1>
+
+          {/* 🔹 SOLO ADMIN VE EDITAR */}
+          {role === "admin" && (
+            <button
+              onClick={() =>
+                router.push(`/admin/process/${id}/edit`)
+              }
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl"
+            >
+              ✏️ Editar proceso
+            </button>
+          )}
+
+        </div>
 
         {steps.map((step, index) => (
           <div
@@ -194,12 +225,14 @@ export default function ProcessDetail() {
 
         {questions.length > 0 && (
           <div className="bg-white p-6 rounded-2xl shadow-md space-y-6">
+
             <h2 className="text-2xl font-bold">
               🧠 Evaluación
             </h2>
 
             {questions.map((q) => (
               <div key={q.id}>
+
                 <p className="font-semibold mb-2">
                   {q.question}
                 </p>
@@ -220,6 +253,7 @@ export default function ProcessDetail() {
                     {q[`option_${opt.toLowerCase()}`]}
                   </button>
                 ))}
+
               </div>
             ))}
 
@@ -241,8 +275,10 @@ export default function ProcessDetail() {
                 ✅ Proceso completado
               </p>
             )}
+
           </div>
         )}
+
       </div>
     </main>
   );
