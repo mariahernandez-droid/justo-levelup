@@ -19,6 +19,31 @@ type Message =
   | { role: "user"; text: string }
   | { role: "assistant"; text?: string; process?: Process };
 
+// 🔗 convertir links en clickeables
+function formatTextWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {part}
+        </a>
+      );
+    }
+
+    return part;
+  });
+}
+
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
@@ -32,7 +57,6 @@ export default function AssistantWidget() {
     setQuestion("");
     setLoading(true);
 
-    // Mostrar mensaje del usuario
     setMessages((prev) => [
       ...prev,
       { role: "user", text: userQuestion },
@@ -47,9 +71,9 @@ export default function AssistantWidget() {
         body: JSON.stringify({ message: userQuestion }),
       });
 
-      // 🔥 Si el servidor responde error
       if (!res.ok) {
         const errorText = await res.text();
+
         console.error("Error servidor:", errorText);
 
         setMessages((prev) => [
@@ -68,7 +92,6 @@ export default function AssistantWidget() {
 
       console.log("Respuesta API:", data);
 
-      // 🔥 Siempre mostrar algo
       if (data.type === "process") {
         setMessages((prev) => [
           ...prev,
@@ -103,7 +126,6 @@ export default function AssistantWidget() {
 
   return (
     <>
-      {/* BOTÓN */}
       <button
         onClick={() => setOpen(!open)}
         className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white w-14 h-14 rounded-full shadow-xl hover:scale-110 transition-all z-50"
@@ -149,9 +171,10 @@ export default function AssistantWidget() {
                       )
                       .map((step) => (
                         <div key={step.step_order} className="space-y-2">
+
                           <p>
                             <strong>{step.step_order}.</strong>{" "}
-                            {step.content}
+                            {formatTextWithLinks(step.content)}
                           </p>
 
                           {step.media_url && (
@@ -171,8 +194,10 @@ export default function AssistantWidget() {
                               )}
                             </>
                           )}
+
                         </div>
                       ))}
+
                   </div>
                 );
               }
@@ -182,7 +207,7 @@ export default function AssistantWidget() {
                   key={i}
                   className="p-3 rounded-2xl text-sm bg-gray-100 whitespace-pre-line"
                 >
-                  {msg.text}
+                  {msg.text && formatTextWithLinks(msg.text)}
                 </div>
               );
             })}
@@ -195,7 +220,6 @@ export default function AssistantWidget() {
 
           </div>
 
-          {/* INPUT */}
           <div className="flex gap-2">
             <input
               value={question}
@@ -213,6 +237,7 @@ export default function AssistantWidget() {
               ➤
             </button>
           </div>
+
         </div>
       )}
     </>
