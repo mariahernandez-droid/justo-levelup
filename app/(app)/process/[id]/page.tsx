@@ -5,6 +5,31 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 
+// 🔗 convertir links en clickeables
+function formatTextWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {part}
+        </a>
+      );
+    }
+
+    return part;
+  });
+}
+
 export default function ProcessDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -19,7 +44,6 @@ export default function ProcessDetail() {
   const [answers, setAnswers] = useState<any>({});
   const [score, setScore] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
-
   const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,7 +62,7 @@ export default function ProcessDetail() {
         return;
       }
 
-      // 🔹 Obtener rol del usuario
+      // obtener rol
       const { data: profile } = await sb
         .from("profiles")
         .select("role")
@@ -47,7 +71,7 @@ export default function ProcessDetail() {
 
       setRole(profile?.role || null);
 
-      // 🔹 Cargar proceso
+      // cargar proceso
       const { data: processData } = await sb
         .from("processes")
         .select("*")
@@ -56,7 +80,7 @@ export default function ProcessDetail() {
 
       setProcess(processData);
 
-      // 🔹 Cargar pasos
+      // cargar pasos
       const { data: stepsData } = await sb
         .from("process_steps")
         .select("*")
@@ -65,7 +89,7 @@ export default function ProcessDetail() {
 
       setSteps(stepsData || []);
 
-      // 🔹 Cargar preguntas
+      // cargar preguntas
       const { data: questionsData } = await sb
         .from("questions")
         .select("*")
@@ -194,7 +218,6 @@ export default function ProcessDetail() {
             {process?.title}
           </h1>
 
-          {/* 🔹 SOLO ADMIN VE EDITAR */}
           {role === "admin" && (
             <button
               onClick={() =>
@@ -217,7 +240,8 @@ export default function ProcessDetail() {
               Paso {index + 1}
             </h3>
 
-            <p>{step.content}</p>
+            {/* 🔗 LINKS FORMATEADOS */}
+            <p>{formatTextWithLinks(step.content)}</p>
 
             {renderMedia(step.media_url)}
           </div>
