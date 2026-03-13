@@ -42,7 +42,7 @@ export default function EditProcess() {
   const uploadMedia = async (index: number, file: File) => {
 
     const fileExt = file.name.split(".").pop();
-    const fileName = ${Date.now()}.${fileExt};
+    const fileName = `${Date.now()}.${fileExt}`;
 
     const { error } = await supabase.storage
       .from("process-media")
@@ -122,7 +122,7 @@ export default function EditProcess() {
 
     alert("Proceso actualizado");
 
-    router.push(/process/${id});
+    router.push(`/process/${id}`);
   };
 
   if (loading) return <p className="p-10">Cargando...</p>;
@@ -167,7 +167,7 @@ export default function EditProcess() {
           {/* subir media */}
           <input
             type="file"
-            accept="image/,video/"
+            accept="image/*,video/*"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) uploadMedia(index, file);
