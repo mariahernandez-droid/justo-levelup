@@ -105,12 +105,25 @@ export default function ProcessesPage() {
     );
   }
 
+  // 🔵 Agrupar procesos por categoría
+  const groupedProcesses: Record<string, Process[]> = {};
+
+  filteredProcesses.forEach((process) => {
+    if (!groupedProcesses[process.category_id]) {
+      groupedProcesses[process.category_id] = [];
+    }
+    groupedProcesses[process.category_id].push(process);
+  });
+
   return (
     <main className="min-h-screen p-10 bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200">
       <div className="max-w-6xl mx-auto space-y-12">
+
         <h1 className="text-4xl font-bold">
           📚 Biblioteca de Procesos
         </h1>
+
+        {/* filtros */}
 
         <div className="grid md:grid-cols-3 gap-4">
           <input
@@ -131,6 +144,7 @@ export default function ProcessesPage() {
             <option value="all">
               Todas las categorías
             </option>
+
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.icon || "📂"} {cat.name}
@@ -153,65 +167,96 @@ export default function ProcessesPage() {
           </select>
         </div>
 
-        {filteredProcesses.length === 0 && (
-          <p className="text-gray-600">
-            No se encontraron procesos.
-          </p>
-        )}
+        {/* categorías */}
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredProcesses.map((process) => {
-            const isCompleted =
-              completedIds.includes(process.id);
+        {Object.entries(groupedProcesses).map(
+          ([categoryId, processes]) => {
+
+            const category = categories.find(
+              (c) => c.id === categoryId
+            );
+
+            const completedCount = processes.filter((p) =>
+              completedIds.includes(p.id)
+            ).length;
+
+            const progress = Math.round(
+              (completedCount / processes.length) * 100
+            );
 
             return (
               <div
-                key={process.id}
-                onClick={() =>
-                  router.push(`/process/${process.id}`)
-                }
-                className="group cursor-pointer bg-white/70 backdrop-blur-xl rounded-3xl p-6 shadow-md hover:shadow-2xl transition-all hover:-translate-y-2"
+                key={categoryId}
+                className="bg-white/70 backdrop-blur-xl p-8 rounded-3xl shadow-xl"
               >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-bold group-hover:text-purple-700 transition">
-                      {process.title}
-                    </h3>
 
-                    <p className="text-sm text-gray-500 mt-1">
-                      {
-                        categories.find(
-                          (c) =>
-                            c.id === process.category_id
-                        )?.name
-                      }
-                    </p>
-                  </div>
+                {/* header categoría */}
 
-                  {isCompleted ? (
-                    <span className="text-green-600 text-sm font-semibold bg-green-100 px-3 py-1 rounded-full">
-                      ✅
-                    </span>
-                  ) : (
-                    <span className="text-orange-600 text-sm font-semibold bg-orange-100 px-3 py-1 rounded-full">
-                      🔥
-                    </span>
-                  )}
+                <div className="flex justify-between items-center mb-6">
+
+                  <h2 className="text-2xl font-bold">
+                    {category?.icon || "📂"} {category?.name}
+                  </h2>
+
+                  <span className="text-sm font-semibold text-purple-700">
+                    {progress}%
+                  </span>
+
                 </div>
 
-                <div className="mt-6 h-2 bg-gray-200 rounded-full overflow-hidden">
+                {/* barra progreso */}
+
+                <div className="w-full h-3 bg-gray-200 rounded-full mb-8 overflow-hidden">
                   <div
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      isCompleted
-                        ? "bg-gradient-to-r from-green-400 to-green-600 w-full"
-                        : "bg-gradient-to-r from-purple-400 to-pink-500 w-1/3"
-                    }`}
+                    className="h-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                    style={{ width: `${progress}%` }}
                   />
+                </div>
+
+                {/* procesos */}
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                  {processes.map((process) => {
+
+                    const isCompleted =
+                      completedIds.includes(process.id);
+
+                    return (
+                      <div
+                        key={process.id}
+                        onClick={() =>
+                          router.push(`/process/${process.id}`)
+                        }
+                        className="group cursor-pointer bg-white rounded-2xl p-5 shadow-md hover:shadow-xl transition-all hover:-translate-y-1"
+                      >
+
+                        <div className="flex justify-between items-start">
+
+                          <h3 className="font-bold group-hover:text-purple-700">
+                            {process.title}
+                          </h3>
+
+                          {isCompleted ? (
+                            <span className="text-green-600 text-sm">
+                              ✅
+                            </span>
+                          ) : (
+                            <span className="text-orange-500 text-sm">
+                              🔥
+                            </span>
+                          )}
+
+                        </div>
+
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
-          })}
-        </div>
+          }
+        )}
       </div>
     </main>
   );

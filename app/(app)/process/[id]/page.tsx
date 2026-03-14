@@ -4,12 +4,12 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
+import BadgeUnlockModal from "@/components/BadgeUnlockModal";
 
 // 🔗 convertir links y respetar ENTER
 function formatTextWithLinks(text: string) {
 
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-
   const lines = text.split("\n");
 
   return lines.map((line, index) => {
@@ -62,6 +62,9 @@ export default function ProcessDetail() {
   const [completed, setCompleted] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [badgeData, setBadgeData] = useState<any>(null);
+
   useEffect(() => {
 
     if (!id) return;
@@ -80,7 +83,6 @@ export default function ProcessDetail() {
         return;
       }
 
-      // obtener rol
       const { data: profile } = await sb
         .from("profiles")
         .select("role")
@@ -89,7 +91,6 @@ export default function ProcessDetail() {
 
       setRole(profile?.role || null);
 
-      // cargar proceso
       const { data: processData } = await sb
         .from("processes")
         .select("*")
@@ -98,7 +99,6 @@ export default function ProcessDetail() {
 
       setProcess(processData);
 
-      // cargar pasos
       const { data: stepsData } = await sb
         .from("process_steps")
         .select("*")
@@ -107,7 +107,6 @@ export default function ProcessDetail() {
 
       setSteps(stepsData || []);
 
-      // cargar preguntas
       const { data: questionsData } = await sb
         .from("questions")
         .select("*")
@@ -199,6 +198,62 @@ export default function ProcessDetail() {
         .update({ points: currentPoints + 10 })
         .eq("id", userId);
 
+    }
+
+    // 🔵 verificar insignia por categoría
+    const { data: processData } = await supabase
+      .from("processes")
+      .select("category_id")
+      .eq("id", id)
+      .single();
+
+    const categoryId = processData?.category_id;
+
+    if (categoryId) {
+
+      const { data: categoryProcesses } = await supabase
+        .from("processes")
+        .select("id")
+        .eq("category_id", categoryId)
+        .eq("published", true);
+
+      const processIds = categoryProcesses?.map(p => p.id) || [];
+
+      const { data: completions } = await supabase
+        .from("process_completions")
+        .select("process_id")
+        .eq("user_id", userId)
+        .in("process_id", processIds);
+
+      const completedCount = completions?.length || 0;
+
+      if (completedCount === processIds.length) {
+
+        const { data: badgeExists } = await supabase
+          .from("user_badges")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("category_id", categoryId)
+          .maybeSingle();
+
+        if (!badgeExists) {
+
+          await supabase.from("user_badges").insert({
+            user_id: userId,
+            category_id: categoryId
+          });
+
+          const { data: category } = await supabase
+            .from("categories")
+            .select("badge_icon, badge_name")
+            .eq("id", categoryId)
+            .single();
+
+          setBadgeData(category);
+          setShowBadgeModal(true);
+
+        }
+      }
     }
 
     setCompleted(true);
@@ -347,6 +402,13 @@ export default function ProcessDetail() {
         )}
 
       </div>
+
+      <BadgeUnlockModal
+        open={showBadgeModal}
+        badgeIcon={badgeData?.badge_icon}
+        badgeName={badgeData?.badge_name}
+        onClose={() => setShowBadgeModal(false)}
+      />
 
     </main>
 
