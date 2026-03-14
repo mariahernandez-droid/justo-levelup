@@ -5,32 +5,48 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 
-// 🔗 convertir links en clickeables
+// 🔗 convertir links y respetar ENTER
 function formatTextWithLinks(text: string) {
+
   const urlRegex = /(https?:\/\/[^\s]+)/g;
 
-  const parts = text.split(urlRegex);
+  const lines = text.split("\n");
 
-  return parts.map((part, i) => {
-    if (part.match(urlRegex)) {
-      return (
-        <a
-          key={i}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {part}
-        </a>
-      );
-    }
+  return lines.map((line, index) => {
 
-    return part;
+    const parts = line.split(urlRegex);
+
+    return (
+      <span key={index}>
+        {parts.map((part, i) => {
+
+          if (part.match(urlRegex)) {
+            return (
+              <a
+                key={i}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                {part}
+              </a>
+            );
+          }
+
+          return part;
+
+        })}
+        <br />
+      </span>
+    );
+
   });
+
 }
 
 export default function ProcessDetail() {
+
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -47,12 +63,14 @@ export default function ProcessDetail() {
   const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
+
     if (!id) return;
 
     const sb = getSupabase();
     setSupabase(sb);
 
     const loadData = async () => {
+
       const {
         data: { user },
       } = await sb.auth.getUser();
@@ -98,19 +116,24 @@ export default function ProcessDetail() {
       setQuestions(questionsData || []);
 
       setLoading(false);
+
     };
 
     loadData();
+
   }, [id, router]);
 
   const handleAnswer = (questionId: string, option: string) => {
+
     setAnswers((prev: any) => ({
       ...prev,
       [questionId]: option,
     }));
+
   };
 
   const submitExam = async () => {
+
     if (!supabase || !questions.length) return;
 
     let correct = 0;
@@ -142,9 +165,11 @@ export default function ProcessDetail() {
     if (finalScore >= 60) {
       await completeProcess(user.id);
     }
+
   };
 
   const completeProcess = async (userId: string) => {
+
     if (!supabase) return;
 
     const { data: existing } = await supabase
@@ -155,6 +180,7 @@ export default function ProcessDetail() {
       .maybeSingle();
 
     if (!existing) {
+
       await supabase.from("process_completions").insert({
         user_id: userId,
         process_id: id,
@@ -172,12 +198,15 @@ export default function ProcessDetail() {
         .from("profiles")
         .update({ points: currentPoints + 10 })
         .eq("id", userId);
+
     }
 
     setCompleted(true);
+
   };
 
   const renderMedia = (url: string) => {
+
     if (!url) return null;
 
     const lower = url.toLowerCase();
@@ -203,13 +232,16 @@ export default function ProcessDetail() {
         className="rounded-xl max-h-96 w-full mt-4 object-contain"
       />
     );
+
   };
 
   if (loading || !supabase)
     return <p className="p-10">Cargando...</p>;
 
   return (
+
     <main className="min-h-screen p-10 bg-gray-50">
+
       <div className="max-w-4xl mx-auto space-y-10">
 
         <div className="flex justify-between items-center">
@@ -232,22 +264,28 @@ export default function ProcessDetail() {
         </div>
 
         {steps.map((step, index) => (
+
           <div
             key={step.id}
             className="bg-white p-6 rounded-2xl shadow-md"
           >
+
             <h3 className="font-bold mb-2">
               Paso {index + 1}
             </h3>
 
-            {/* 🔗 LINKS FORMATEADOS */}
-            <p>{formatTextWithLinks(step.content)}</p>
+            <p className="leading-relaxed">
+              {formatTextWithLinks(step.content)}
+            </p>
 
             {renderMedia(step.media_url)}
+
           </div>
+
         ))}
 
         {questions.length > 0 && (
+
           <div className="bg-white p-6 rounded-2xl shadow-md space-y-6">
 
             <h2 className="text-2xl font-bold">
@@ -255,6 +293,7 @@ export default function ProcessDetail() {
             </h2>
 
             {questions.map((q) => (
+
               <div key={q.id}>
 
                 <p className="font-semibold mb-2">
@@ -262,6 +301,7 @@ export default function ProcessDetail() {
                 </p>
 
                 {["A", "B", "C"].map((opt) => (
+
                   <button
                     key={opt}
                     onClick={() =>
@@ -276,9 +316,11 @@ export default function ProcessDetail() {
                     {opt}){" "}
                     {q[`option_${opt.toLowerCase()}`]}
                   </button>
+
                 ))}
 
               </div>
+
             ))}
 
             <button
@@ -301,9 +343,13 @@ export default function ProcessDetail() {
             )}
 
           </div>
+
         )}
 
       </div>
+
     </main>
+
   );
+
 }
