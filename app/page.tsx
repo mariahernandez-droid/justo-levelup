@@ -1,7 +1,7 @@
 export default function Home() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100">
-      <div className="bg-white shadow-xl rounded-2xl p-10 text-center w-[400px]">
+      <div className="bg-white shadow-xl rounded-2xl p-10 text-center w-[400px] text-black">
         <h1 className="text-3xl font-bold mb-4">
           Justo SAC – LevelUp 🚀
         </h1>
