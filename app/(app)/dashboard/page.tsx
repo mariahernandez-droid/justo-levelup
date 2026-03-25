@@ -17,7 +17,6 @@ interface TeamMember {
 /* niveles */
 
 function getLevel(progress: number) {
-
   if (progress === 100)
     return { name: "Pro SAC 👑", color: "text-yellow-600" };
 
@@ -34,11 +33,9 @@ function getLevel(progress: number) {
     return { name: "Junior 🟡", color: "text-yellow-500" };
 
   return { name: "En formación 🌱", color: "text-green-600" };
-
 }
 
 export default function Dashboard() {
-
   const router = useRouter();
 
   const [supabase, setSupabase] =
@@ -55,12 +52,10 @@ export default function Dashboard() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-
     const sb = getSupabase();
     setSupabase(sb);
 
     const init = async () => {
-
       const { data: userData } = await sb.auth.getUser();
 
       if (!userData.user) {
@@ -90,7 +85,6 @@ export default function Dashboard() {
         .order("created_at", { ascending: false });
 
       if (allAnnouncements?.length) {
-
         const { data: readRecords } = await sb
           .from("announcement_reads")
           .select("announcement_id")
@@ -108,7 +102,6 @@ export default function Dashboard() {
         );
 
         setAnnouncements(unread);
-
       }
 
       /* PROCESOS */
@@ -124,21 +117,31 @@ export default function Dashboard() {
         .from("process_completions")
         .select("user_id, process_id");
 
+      /* 🔥 PROGRESO USUARIO (CORREGIDO) */
+
       const myCompletions =
         completions?.filter(
           (c) => c.user_id === user.id
         ) || [];
 
+      const uniqueMyProcesses = new Set(
+        myCompletions.map((c) => c.process_id)
+      );
+
       const myProgress =
         totalProcesses > 0
-          ? Math.round(
-              (myCompletions.length / totalProcesses) * 100
+          ? Math.min(
+              Math.round(
+                (uniqueMyProcesses.size / totalProcesses) *
+                  100
+              ),
+              100
             )
           : 0;
 
       setProgress(myProgress);
 
-      /* LEADERBOARD */
+      /* 🔥 LEADERBOARD CORREGIDO */
 
       const { data: profiles } = await sb
         .from("profiles")
@@ -146,26 +149,33 @@ export default function Dashboard() {
 
       const teamWithProgress: TeamMember[] =
         profiles?.map((member: any) => {
-
           const memberCompletions =
             completions?.filter(
               (c) => c.user_id === member.id
             ) || [];
 
+          const uniqueProcesses = new Set(
+            memberCompletions.map(
+              (c) => c.process_id
+            )
+          );
+
           const percentage =
             totalProcesses > 0
-              ? Math.round(
-                  (memberCompletions.length /
-                    totalProcesses) *
-                    100
+              ? Math.min(
+                  Math.round(
+                    (uniqueProcesses.size /
+                      totalProcesses) *
+                      100
+                  ),
+                  100
                 )
               : 0;
 
           return {
             ...member,
-            progress: percentage
+            progress: percentage,
           };
-
         }) || [];
 
       teamWithProgress.sort(
@@ -175,11 +185,9 @@ export default function Dashboard() {
       setTeam(teamWithProgress);
 
       setLoading(false);
-
     };
 
     init();
-
   }, [router]);
 
   if (!supabase || loading)
@@ -188,9 +196,7 @@ export default function Dashboard() {
   const myLevel = getLevel(progress);
 
   return (
-
     <>
-
       <main className="min-h-screen p-10 bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200">
 
         <div className="max-w-6xl mx-auto space-y-12">
@@ -200,18 +206,15 @@ export default function Dashboard() {
           <div className="bg-white/60 backdrop-blur-xl p-10 rounded-3xl shadow-2xl flex justify-between items-center">
 
             <div>
-
               <h1 className="text-4xl font-bold mb-2">
                 Hola, {nickname} 👋
               </h1>
 
               <div className="w-80 bg-white rounded-full h-5 mt-4 overflow-hidden">
-
                 <div
                   className="bg-gradient-to-r from-purple-600 to-pink-600 h-5 rounded-full"
                   style={{ width: `${progress}%` }}
                 />
-
               </div>
 
               <p className="mt-3 font-semibold text-lg">
@@ -221,7 +224,6 @@ export default function Dashboard() {
               <p className={`text-xl font-bold ${myLevel.color}`}>
                 Nivel: {myLevel.name}
               </p>
-
             </div>
 
             <img
@@ -231,7 +233,6 @@ export default function Dashboard() {
               }
               className="w-32 h-32 rounded-full border-4 border-white shadow-lg"
             />
-
           </div>
 
           {/* LEADERBOARD */}
@@ -333,7 +334,5 @@ export default function Dashboard() {
       <AssistantWidget />
 
     </>
-
   );
-
 }

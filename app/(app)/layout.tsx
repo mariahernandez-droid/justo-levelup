@@ -29,10 +29,46 @@ export default function AppLayout({
   const [avatar, setAvatar] =
     useState<string | null>(null);
 
+  // 🌙 DARK MODE
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
   useEffect(() => {
     const client = getSupabase();
     setSupabase(client);
+
+    // 🔥 detectar tema guardado o sistema
+    const savedTheme = localStorage.getItem("theme");
+
+    if (savedTheme === "dark") {
+      setTheme("dark");
+      document.documentElement.classList.add("dark");
+    } else if (savedTheme === "light") {
+      setTheme("light");
+      document.documentElement.classList.remove("dark");
+    } else {
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+
+      setTheme(prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle(
+        "dark",
+        prefersDark
+      );
+    }
   }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+
+    document.documentElement.classList.toggle(
+      "dark",
+      newTheme === "dark"
+    );
+  };
 
   useEffect(() => {
     if (!supabase) return;
@@ -89,7 +125,11 @@ export default function AppLayout({
   };
 
   if (loading) {
-    return <div className="p-10">Cargando...</div>;
+    return (
+      <div className="p-10 text-black dark:text-white">
+        Cargando...
+      </div>
+    );
   }
 
   const menu = [
@@ -109,24 +149,54 @@ export default function AppLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100">
+    <div className="
+      flex min-h-screen transition-colors duration-300
+      bg-gradient-to-br 
+      from-indigo-100 via-purple-100 to-pink-100
+      dark:from-gray-900 dark:via-gray-800 dark:to-gray-900
+    ">
 
       {/* SIDEBAR */}
-      <aside className="w-64 bg-white/70 backdrop-blur-xl shadow-2xl p-6 flex flex-col justify-between rounded-r-3xl">
+      <aside className="
+        w-64 
+        bg-white/70 dark:bg-gray-800/80 
+        backdrop-blur-xl shadow-2xl 
+        p-6 flex flex-col justify-between 
+        rounded-r-3xl 
+        text-black dark:text-white
+      ">
+
         <div>
           <h1 className="text-2xl font-extrabold mb-10">
             🎮 LevelUp
           </h1>
 
+          {/* 🌙 BOTÓN DARK MODE */}
+          <button
+            onClick={toggleTheme}
+            className="
+              mb-6 w-full py-2 rounded-xl 
+              bg-gray-200 dark:bg-gray-700 
+              hover:scale-105 transition
+            "
+          >
+            {theme === "light"
+              ? "🌙 Modo oscuro"
+              : "☀️ Modo claro"}
+          </button>
+
           <nav className="space-y-3">
             {menu.map((item) => (
               <Link key={item.path} href={item.path}>
                 <div
-                  className={`p-3 rounded-xl cursor-pointer transition ${
-                    pathname === item.path
-                      ? "bg-indigo-600 text-white shadow-lg"
-                      : "hover:bg-indigo-100"
-                  }`}
+                  className={`
+                    p-3 rounded-xl cursor-pointer transition
+                    ${
+                      pathname === item.path
+                        ? "bg-indigo-600 text-white shadow-lg"
+                        : "hover:bg-indigo-100 dark:hover:bg-gray-700"
+                    }
+                  `}
                 >
                   {item.icon} {item.name}
                 </div>
@@ -135,21 +205,22 @@ export default function AppLayout({
           </nav>
         </div>
 
-        <div className="mt-10 border-t pt-6">
+        <div className="mt-10 border-t pt-6 border-gray-300 dark:border-gray-700">
+
           <div className="flex items-center gap-3 mb-4">
             <img
               src={
                 avatar ||
                 "https://api.dicebear.com/7.x/adventurer/svg?seed=User"
               }
-              className="w-12 h-12 rounded-full"
+              className="w-12 h-12 rounded-full border-2 border-white dark:border-gray-700"
               alt="avatar"
             />
             <div>
               <p className="font-bold">
                 {nickname || "Usuario"}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {role}
               </p>
             </div>
@@ -157,20 +228,28 @@ export default function AppLayout({
 
           <button
             onClick={logout}
-            className="w-full bg-gray-700 hover:bg-gray-800 text-white py-2 rounded-xl transition"
+            className="
+              w-full 
+              bg-gray-700 hover:bg-gray-800 
+              dark:bg-gray-600 dark:hover:bg-gray-500
+              text-white py-2 rounded-xl transition
+            "
           >
             Salir
           </button>
+
         </div>
+
       </aside>
 
-      {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 p-10 overflow-y-auto">
+      {/* CONTENIDO */}
+      <main className="flex-1 p-10 overflow-y-auto text-black dark:text-white">
         {children}
       </main>
 
-      {/* 🔥 AQUÍ VA EL BOT */}
+      {/* BOT */}
       <AssistantWidget />
+
     </div>
   );
 }
