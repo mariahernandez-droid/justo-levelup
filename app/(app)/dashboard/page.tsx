@@ -12,11 +12,13 @@ interface TeamMember {
   nickname: string;
   avatar_url: string | null;
   progress: number;
+  unread: number; // 🔥 NUEVO
 }
 
 /* niveles */
 
 function getLevel(progress: number) {
+
   if (progress === 100)
     return { name: "Pro SAC 👑", color: "text-yellow-600" };
 
@@ -33,9 +35,11 @@ function getLevel(progress: number) {
     return { name: "Junior 🟡", color: "text-yellow-500" };
 
   return { name: "En formación 🌱", color: "text-green-600" };
+
 }
 
 export default function Dashboard() {
+
   const router = useRouter();
 
   const [supabase, setSupabase] =
@@ -51,11 +55,15 @@ export default function Dashboard() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
+
     const sb = getSupabase();
     setSupabase(sb);
 
     const init = async () => {
+
       const { data: userData } = await sb.auth.getUser();
 
       if (!userData.user) {
@@ -77,32 +85,26 @@ export default function Dashboard() {
       setNickname(profile?.nickname || "");
       setAvatar(profile?.avatar_url || "");
 
-      /* ANUNCIOS */
+      /* 🔔 ANUNCIOS */
 
       const { data: allAnnouncements } = await sb
         .from("announcements")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("id");
 
-      if (allAnnouncements?.length) {
-        const { data: readRecords } = await sb
-          .from("announcement_reads")
-          .select("announcement_id")
-          .eq("user_id", user.id);
+      const totalAnnouncements = allAnnouncements?.length || 0;
 
-        const readIds =
-          readRecords?.map(
-            (r: { announcement_id: string }) =>
-              r.announcement_id
-          ) || [];
+      const { data: readRecords } = await sb
+        .from("announcement_reads")
+        .select("announcement_id, user_id");
 
-        const unread = allAnnouncements.filter(
-          (ann: { id: string }) =>
-            !readIds.includes(ann.id)
-        );
+      const myReads =
+        readRecords?.filter(
+          (r) => r.user_id === user.id
+        ) || [];
 
-        setAnnouncements(unread);
-      }
+      setUnreadCount(
+        Math.max(totalAnnouncements - myReads.length, 0)
+      );
 
       /* PROCESOS */
 
@@ -117,8 +119,6 @@ export default function Dashboard() {
         .from("process_completions")
         .select("user_id, process_id");
 
-      /* 🔥 PROGRESO USUARIO (CORREGIDO) */
-
       const myCompletions =
         completions?.filter(
           (c) => c.user_id === user.id
@@ -132,8 +132,7 @@ export default function Dashboard() {
         totalProcesses > 0
           ? Math.min(
               Math.round(
-                (uniqueMyProcesses.size / totalProcesses) *
-                  100
+                (uniqueMyProcesses.size / totalProcesses) * 100
               ),
               100
             )
@@ -141,7 +140,7 @@ export default function Dashboard() {
 
       setProgress(myProgress);
 
-      /* 🔥 LEADERBOARD CORREGIDO */
+      /* LEADERBOARD */
 
       const { data: profiles } = await sb
         .from("profiles")
@@ -149,33 +148,44 @@ export default function Dashboard() {
 
       const teamWithProgress: TeamMember[] =
         profiles?.map((member: any) => {
+
+          /* progreso */
           const memberCompletions =
             completions?.filter(
               (c) => c.user_id === member.id
             ) || [];
 
           const uniqueProcesses = new Set(
-            memberCompletions.map(
-              (c) => c.process_id
-            )
+            memberCompletions.map((c) => c.process_id)
           );
 
           const percentage =
             totalProcesses > 0
               ? Math.min(
                   Math.round(
-                    (uniqueProcesses.size /
-                      totalProcesses) *
-                      100
+                    (uniqueProcesses.size / totalProcesses) * 100
                   ),
                   100
                 )
               : 0;
 
+          /* 🔔 novedades por usuario */
+          const memberReads =
+            readRecords?.filter(
+              (r) => r.user_id === member.id
+            ) || [];
+
+          const unread = Math.max(
+            totalAnnouncements - memberReads.length,
+            0
+          );
+
           return {
             ...member,
             progress: percentage,
+            unread
           };
+
         }) || [];
 
       teamWithProgress.sort(
@@ -185,9 +195,11 @@ export default function Dashboard() {
       setTeam(teamWithProgress);
 
       setLoading(false);
+
     };
 
     init();
+
   }, [router]);
 
   if (!supabase || loading)
@@ -196,7 +208,9 @@ export default function Dashboard() {
   const myLevel = getLevel(progress);
 
   return (
+
     <>
+
       <main className="min-h-screen p-10 bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200">
 
         <div className="max-w-6xl mx-auto space-y-12">
@@ -206,15 +220,18 @@ export default function Dashboard() {
           <div className="bg-white/60 backdrop-blur-xl p-10 rounded-3xl shadow-2xl flex justify-between items-center">
 
             <div>
+
               <h1 className="text-4xl font-bold mb-2">
                 Hola, {nickname} 👋
               </h1>
 
               <div className="w-80 bg-white rounded-full h-5 mt-4 overflow-hidden">
+
                 <div
                   className="bg-gradient-to-r from-purple-600 to-pink-600 h-5 rounded-full"
                   style={{ width: `${progress}%` }}
                 />
+
               </div>
 
               <p className="mt-3 font-semibold text-lg">
@@ -224,6 +241,18 @@ export default function Dashboard() {
               <p className={`text-xl font-bold ${myLevel.color}`}>
                 Nivel: {myLevel.name}
               </p>
+
+              {/* 🔔 MIS NOVEDADES */}
+              {unreadCount > 0 ? (
+                <p className="mt-2 text-red-600 font-semibold">
+                  🔔 Tienes {unreadCount} novedades pendientes
+                </p>
+              ) : (
+                <p className="mt-2 text-green-600 font-semibold">
+                  ✅ Estás al día
+                </p>
+              )}
+
             </div>
 
             <img
@@ -233,6 +262,7 @@ export default function Dashboard() {
               }
               className="w-32 h-32 rounded-full border-4 border-white shadow-lg"
             />
+
           </div>
 
           {/* LEADERBOARD */}
@@ -285,6 +315,17 @@ export default function Dashboard() {
                           {level.name}
                         </p>
 
+                        {/* 🔔 NOVEDADES POR USUARIO */}
+                        {member.unread > 0 ? (
+                          <p className="text-xs text-red-600 font-semibold">
+                            🔔 {member.unread} pendientes
+                          </p>
+                        ) : (
+                          <p className="text-xs text-green-600 font-semibold">
+                            ✅ Al día
+                          </p>
+                        )}
+
                       </div>
 
                     </div>
@@ -334,5 +375,7 @@ export default function Dashboard() {
       <AssistantWidget />
 
     </>
+
   );
+
 }
