@@ -139,7 +139,7 @@ export default function NewsPage() {
         <div className="bg-white/70 backdrop-blur-xl p-8 rounded-3xl shadow-2xl space-y-6">
 
           <h2 className="text-xl font-semibold">
-            Publicar nueva novedad
+            Publicar nueva información
           </h2>
 
           <input

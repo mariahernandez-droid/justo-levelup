@@ -12,7 +12,7 @@ interface TeamMember {
   nickname: string;
   avatar_url: string | null;
   progress: number;
-  unread: number; // 🔥 NUEVO
+  unread: number;
 }
 
 /* niveles */
@@ -85,26 +85,31 @@ export default function Dashboard() {
       setNickname(profile?.nickname || "");
       setAvatar(profile?.avatar_url || "");
 
-      /* 🔔 ANUNCIOS */
+      /* 🔔 ANUNCIOS (como antes) */
 
       const { data: allAnnouncements } = await sb
         .from("announcements")
-        .select("id");
-
-      const totalAnnouncements = allAnnouncements?.length || 0;
+        .select("*")
+        .order("created_at", { ascending: false });
 
       const { data: readRecords } = await sb
         .from("announcement_reads")
         .select("announcement_id, user_id");
 
-      const myReads =
-        readRecords?.filter(
-          (r) => r.user_id === user.id
-        ) || [];
+      const readIds =
+        readRecords
+          ?.filter((r) => r.user_id === user.id)
+          .map((r) => r.announcement_id) || [];
 
-      setUnreadCount(
-        Math.max(totalAnnouncements - myReads.length, 0)
-      );
+      // 🔥 SOLO NO LEÍDOS → para modales
+      const unreadAnnouncements = allAnnouncements?.filter(
+        (ann) => !readIds.includes(ann.id)
+      ) || [];
+
+      setAnnouncements(unreadAnnouncements);
+
+      // 🔥 contador personal
+      setUnreadCount(unreadAnnouncements.length);
 
       /* PROCESOS */
 
@@ -149,7 +154,6 @@ export default function Dashboard() {
       const teamWithProgress: TeamMember[] =
         profiles?.map((member: any) => {
 
-          /* progreso */
           const memberCompletions =
             completions?.filter(
               (c) => c.user_id === member.id
@@ -169,14 +173,14 @@ export default function Dashboard() {
                 )
               : 0;
 
-          /* 🔔 novedades por usuario */
+          // 🔔 novedades por usuario
           const memberReads =
             readRecords?.filter(
               (r) => r.user_id === member.id
             ) || [];
 
           const unread = Math.max(
-            totalAnnouncements - memberReads.length,
+            (allAnnouncements?.length || 0) - memberReads.length,
             0
           );
 
@@ -315,7 +319,7 @@ export default function Dashboard() {
                           {level.name}
                         </p>
 
-                        {/* 🔔 NOVEDADES POR USUARIO */}
+                        {/* 🔔 ESTADO NOVEDADES */}
                         {member.unread > 0 ? (
                           <p className="text-xs text-red-600 font-semibold">
                             🔔 {member.unread} pendientes
@@ -355,6 +359,7 @@ export default function Dashboard() {
 
       </main>
 
+      {/* 🔥 MODALES (como antes) */}
       {announcements.length > 0 &&
         userId &&
         announcements.map((ann) => (
@@ -375,7 +380,6 @@ export default function Dashboard() {
       <AssistantWidget />
 
     </>
-
   );
 
 }
