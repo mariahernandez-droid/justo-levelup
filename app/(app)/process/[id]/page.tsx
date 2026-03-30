@@ -8,18 +8,15 @@ import BadgeUnlockModal from "@/components/BadgeUnlockModal";
 
 // 🔗 convertir links y respetar ENTER
 function formatTextWithLinks(text: string) {
-
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const lines = text.split("\n");
 
   return lines.map((line, index) => {
-
     const parts = line.split(urlRegex);
 
     return (
       <span key={index}>
         {parts.map((part, i) => {
-
           if (part.match(urlRegex)) {
             return (
               <a
@@ -33,20 +30,15 @@ function formatTextWithLinks(text: string) {
               </a>
             );
           }
-
           return part;
-
         })}
         <br />
       </span>
     );
-
   });
-
 }
 
 export default function ProcessDetail() {
-
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -65,15 +57,16 @@ export default function ProcessDetail() {
   const [showBadgeModal, setShowBadgeModal] = useState(false);
   const [badgeData, setBadgeData] = useState<any>(null);
 
-  useEffect(() => {
+  // 🔥 NUEVO
+  const [nextProcessId, setNextProcessId] = useState<string | null>(null);
 
+  useEffect(() => {
     if (!id) return;
 
     const sb = getSupabase();
     setSupabase(sb);
 
     const loadData = async () => {
-
       const {
         data: { user },
       } = await sb.auth.getUser();
@@ -114,25 +107,39 @@ export default function ProcessDetail() {
 
       setQuestions(questionsData || []);
 
-      setLoading(false);
+      // 🔥 NUEVO: obtener siguiente proceso
+      const { data: allProcesses } = await sb
+        .from("processes")
+        .select("id")
+        .order("created_at", { ascending: true });
 
+      const currentIndex = allProcesses?.findIndex(
+        (p) => p.id === id
+      );
+
+      if (
+        currentIndex !== undefined &&
+        currentIndex >= 0 &&
+        allProcesses &&
+        currentIndex < allProcesses.length - 1
+      ) {
+        setNextProcessId(allProcesses[currentIndex + 1].id);
+      }
+
+      setLoading(false);
     };
 
     loadData();
-
   }, [id, router]);
 
   const handleAnswer = (questionId: string, option: string) => {
-
     setAnswers((prev: any) => ({
       ...prev,
       [questionId]: option,
     }));
-
   };
 
   const submitExam = async () => {
-
     if (!supabase || !questions.length) return;
 
     let correct = 0;
@@ -164,11 +171,9 @@ export default function ProcessDetail() {
     if (finalScore >= 60) {
       await completeProcess(user.id);
     }
-
   };
 
   const completeProcess = async (userId: string) => {
-
     if (!supabase) return;
 
     const { data: existing } = await supabase
@@ -179,7 +184,6 @@ export default function ProcessDetail() {
       .maybeSingle();
 
     if (!existing) {
-
       await supabase.from("process_completions").insert({
         user_id: userId,
         process_id: id,
@@ -197,10 +201,9 @@ export default function ProcessDetail() {
         .from("profiles")
         .update({ points: currentPoints + 10 })
         .eq("id", userId);
-
     }
 
-    // 🔵 verificar insignia por categoría
+    // 🎖️ insignias (igual que tenías)
     const { data: processData } = await supabase
       .from("processes")
       .select("category_id")
@@ -210,7 +213,6 @@ export default function ProcessDetail() {
     const categoryId = processData?.category_id;
 
     if (categoryId) {
-
       const { data: categoryProcesses } = await supabase
         .from("processes")
         .select("id")
@@ -228,7 +230,6 @@ export default function ProcessDetail() {
       const completedCount = completions?.length || 0;
 
       if (completedCount === processIds.length) {
-
         const { data: badgeExists } = await supabase
           .from("user_badges")
           .select("*")
@@ -237,7 +238,6 @@ export default function ProcessDetail() {
           .maybeSingle();
 
         if (!badgeExists) {
-
           await supabase.from("user_badges").insert({
             user_id: userId,
             category_id: categoryId
@@ -251,17 +251,14 @@ export default function ProcessDetail() {
 
           setBadgeData(category);
           setShowBadgeModal(true);
-
         }
       }
     }
 
     setCompleted(true);
-
   };
 
   const renderMedia = (url: string) => {
-
     if (!url) return null;
 
     const lower = url.toLowerCase();
@@ -287,20 +284,16 @@ export default function ProcessDetail() {
         className="rounded-xl max-h-96 w-full mt-4 object-contain"
       />
     );
-
   };
 
   if (loading || !supabase)
     return <p className="p-10">Cargando...</p>;
 
   return (
-
     <main className="min-h-screen p-10 bg-gray-50">
-
       <div className="max-w-4xl mx-auto space-y-10">
 
         <div className="flex justify-between items-center">
-
           <h1 className="text-4xl font-bold">
             {process?.title}
           </h1>
@@ -315,16 +308,10 @@ export default function ProcessDetail() {
               ✏️ Editar proceso
             </button>
           )}
-
         </div>
 
         {steps.map((step, index) => (
-
-          <div
-            key={step.id}
-            className="bg-white p-6 rounded-2xl shadow-md"
-          >
-
+          <div key={step.id} className="bg-white p-6 rounded-2xl shadow-md">
             <h3 className="font-bold mb-2">
               Paso {index + 1}
             </h3>
@@ -334,13 +321,10 @@ export default function ProcessDetail() {
             </p>
 
             {renderMedia(step.media_url)}
-
           </div>
-
         ))}
 
         {questions.length > 0 && (
-
           <div className="bg-white p-6 rounded-2xl shadow-md space-y-6">
 
             <h2 className="text-2xl font-bold">
@@ -348,34 +332,25 @@ export default function ProcessDetail() {
             </h2>
 
             {questions.map((q) => (
-
               <div key={q.id}>
-
                 <p className="font-semibold mb-2">
                   {q.question}
                 </p>
 
                 {["A", "B", "C"].map((opt) => (
-
                   <button
                     key={opt}
-                    onClick={() =>
-                      handleAnswer(q.id, opt)
-                    }
+                    onClick={() => handleAnswer(q.id, opt)}
                     className={`block w-full text-left p-2 rounded-lg mb-2 transition ${
                       answers[q.id] === opt
                         ? "bg-purple-200"
                         : "bg-gray-100 hover:bg-gray-200"
                     }`}
                   >
-                    {opt}){" "}
-                    {q[`option_${opt.toLowerCase()}`]}
+                    {opt}) {q[`option_${opt.toLowerCase()}`]}
                   </button>
-
                 ))}
-
               </div>
-
             ))}
 
             <button
@@ -392,15 +367,28 @@ export default function ProcessDetail() {
             )}
 
             {completed && (
-              <p className="text-green-600 font-bold">
-                ✅ Proceso completado
-              </p>
+              <div className="space-y-4">
+
+                <p className="text-green-600 font-bold">
+                  ✅ Proceso completado
+                </p>
+
+                {nextProcessId && (
+                  <button
+                    onClick={() =>
+                      router.push(`/process/${nextProcessId}`)
+                    }
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl hover:scale-105 transition-all"
+                  >
+                    Siguiente proceso →
+                  </button>
+                )}
+
+              </div>
             )}
 
           </div>
-
         )}
-
       </div>
 
       <BadgeUnlockModal
@@ -409,9 +397,6 @@ export default function ProcessDetail() {
         badgeName={badgeData?.badge_name}
         onClose={() => setShowBadgeModal(false)}
       />
-
     </main>
-
   );
-
 }
