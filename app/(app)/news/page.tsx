@@ -5,6 +5,32 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/* 🔗 FORMATEAR LINKS + ENTER */
+function formatTextWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  return text.split("\n").map((line, index) => (
+    <span key={index}>
+      {line.split(urlRegex).map((part, i) =>
+        part.match(urlRegex) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        )
+      )}
+      <br />
+    </span>
+  ));
+}
+
 export default function NewsPage() {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
@@ -135,11 +161,11 @@ export default function NewsPage() {
           📰 Novedades
         </h1>
 
-        {/* 🔥 FORMULARIO PARA TODOS */}
+        {/* 🔥 FORMULARIO */}
         <div className="bg-white/70 backdrop-blur-xl p-8 rounded-3xl shadow-2xl space-y-6">
 
           <h2 className="text-xl font-semibold">
-            Publicar nueva información
+            Publicar nueva novedad
           </h2>
 
           <input
@@ -175,7 +201,7 @@ export default function NewsPage() {
 
         </div>
 
-        {/* 🔥 LISTA DE NOVEDADES */}
+        {/* 🔥 LISTA */}
         <div className="space-y-6">
 
           {announcements.map((ann, index) => (
@@ -194,16 +220,17 @@ export default function NewsPage() {
                 {ann.title}
               </h3>
 
+              {/* 🔥 AQUÍ ESTÁ EL CAMBIO */}
               <p className="text-gray-700 mb-4 whitespace-pre-line">
-                {ann.message}
+                {formatTextWithLinks(ann.message)}
               </p>
 
               {ann.media_type === "image" && (
-  <img
-    src={ann.media_url}
-    className="rounded-2xl shadow-lg w-full object-contain"
-  />
-)}
+                <img
+                  src={ann.media_url}
+                  className="rounded-2xl shadow-lg w-full object-contain"
+                />
+              )}
 
               {ann.media_type === "video" && (
                 <video

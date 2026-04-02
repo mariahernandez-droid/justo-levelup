@@ -2,6 +2,32 @@
 
 import { getSupabase } from "@/lib/supabase";
 
+/* 🔗 FORMATEAR LINKS + ENTER */
+function formatTextWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  return text.split("\n").map((line, index) => (
+    <span key={index}>
+      {line.split(urlRegex).map((part, i) =>
+        part.match(urlRegex) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        )
+      )}
+      <br />
+    </span>
+  ));
+}
+
 export default function AnnouncementModal({
   announcement,
   userId,
@@ -14,10 +40,15 @@ export default function AnnouncementModal({
   const supabase = getSupabase();
 
   const handleClose = async () => {
-    await supabase.from("announcement_reads").insert({
-      user_id: userId,
-      announcement_id: announcement.id,
-    });
+    await supabase.from("announcement_reads").upsert(
+      {
+        user_id: userId,
+        announcement_id: announcement.id,
+      },
+      {
+        onConflict: "user_id,announcement_id",
+      }
+    );
 
     onClose(announcement.id);
   };
@@ -27,17 +58,19 @@ export default function AnnouncementModal({
 
       <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
 
-        {/* 🔥 CONTENIDO SCROLL */}
+        {/* 🔥 CONTENIDO CON SCROLL */}
         <div className="p-6 overflow-y-auto space-y-4">
 
           <h2 className="text-2xl font-bold">
             {announcement.title}
           </h2>
 
+          {/* 🔥 TEXTO CON LINKS */}
           <p className="text-gray-700 whitespace-pre-line">
-            {announcement.message}
+            {formatTextWithLinks(announcement.message)}
           </p>
 
+          {/* 🖼️ IMAGEN */}
           {announcement.media_type === "image" && (
             <img
               src={announcement.media_url}
@@ -45,6 +78,7 @@ export default function AnnouncementModal({
             />
           )}
 
+          {/* 🎥 VIDEO */}
           {announcement.media_type === "video" && (
             <video
               controls
